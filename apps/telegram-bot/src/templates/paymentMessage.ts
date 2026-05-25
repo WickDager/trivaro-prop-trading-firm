@@ -21,7 +21,7 @@ export function paymentMessage(params: PaymentMessageParams): string {
     `⏱ Expires: 30 minutes`,
     ``,
     `⚠️ Send *exactly* ${params.amount.toFixed(2)} ${params.currency} on ${params.network} network.`,
-    `Send the wrong amount or network and the payment will not be verified.`,
+    `We only accept USDT on TRC20. Other currencies or networks will not be verified.`,
     ``,
     `After sending, your account will be automatically activated.`,
   ].join('\n');
