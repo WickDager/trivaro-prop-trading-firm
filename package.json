@@ -1,0 +1,25 @@
+{
+  "name": "trivaro-prop-trading-firm",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,json,css,md}\"",
+    "clean": "turbo clean"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "prettier": "^3.4.0",
+    "turbo": "^2.4.0",
+    "typescript": "5.8.3"
+  },
+  "packageManager": "npm@11.2.0",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
