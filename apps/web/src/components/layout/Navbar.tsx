@@ -43,8 +43,8 @@ export function Navbar() {
       }`}
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
-          <Logo className="h-7" />
+        <Link href="/" className="flex shrink-0 items-center gap-2">
+          <Logo className="h-10" />
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
