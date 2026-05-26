@@ -26,7 +26,10 @@ function LoginForm() {
   const [step, setStep] = useState<AuthStep>('idle');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
 
@@ -39,6 +42,16 @@ function LoginForm() {
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (mode === 'signup') {
+      const validationErrors = validatePassword(password);
+      if (validationErrors.length > 0) {
+        setPasswordErrors(validationErrors);
+        return;
+      }
+      setPasswordErrors([]);
+    }
+
     setStep('loading');
 
     if (mode === 'signin') {
@@ -56,7 +69,10 @@ function LoginForm() {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: {
+          data: { first_name: firstName, last_name: lastName },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
       if (signUpError) {
         setError(signUpError.message);
@@ -67,6 +83,16 @@ function LoginForm() {
       await supabase.auth.signOut();
       setStep('check_email');
     }
+  }
+
+  function validatePassword(pw: string): string[] {
+    const errors: string[] = [];
+    if (pw.length < 8) errors.push('At least 8 characters');
+    if (!/[A-Z]/.test(pw)) errors.push('One uppercase letter');
+    if (!/[0-9]/.test(pw)) errors.push('One number');
+    if (!/[^A-Za-z0-9]/.test(pw)) errors.push('One special character');
+    if (/\s/.test(pw)) errors.push('No spaces allowed');
+    return errors;
   }
 
   async function handleMagicLink(e: React.FormEvent) {
@@ -182,7 +208,7 @@ function LoginForm() {
 
         <RevealOnScroll delay={0.1}>
           <div className="mt-10 rounded-xl border border-teal-500/10 bg-navy-700/60 p-8">
-            {error && (
+            {(error || passwordErrors.length > 0) && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -191,7 +217,13 @@ function LoginForm() {
                 <div className="flex items-start gap-2">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <div className="flex-1">
-                    <span>{error}</span>
+                    {passwordErrors.length > 0 ? (
+                      <ul className="list-inside list-disc space-y-0.5">
+                        {passwordErrors.map((e) => <li key={e}>{e}</li>)}
+                      </ul>
+                    ) : (
+                      <span>{error}</span>
+                    )}
                     {unconfirmedEmail && (
                       <button
                         onClick={async () => {
@@ -220,6 +252,33 @@ function LoginForm() {
             )}
 
             <form onSubmit={handleEmailSignIn} className="space-y-4">
+              {mode === 'signup' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-sm text-text-secondary">First Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="w-full rounded-lg border border-teal-500/10 bg-navy-800 py-2.5 px-3 text-sm text-white placeholder-text-muted focus:border-teal-400 focus:outline-none"
+                      placeholder="John"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm text-text-secondary">Last Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="w-full rounded-lg border border-teal-500/10 bg-navy-800 py-2.5 px-3 text-sm text-white placeholder-text-muted focus:border-teal-400 focus:outline-none"
+                      placeholder="Doe"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="mb-1.5 block text-sm text-text-secondary">Email</label>
                 <div className="relative">
@@ -256,6 +315,27 @@ function LoginForm() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {mode === 'signup' && (
+                  <div className="mt-2 space-y-1">
+                    {[
+                      { label: 'At least 8 characters', test: (pw: string) => pw.length >= 8 },
+                      { label: 'One uppercase letter', test: (pw: string) => /[A-Z]/.test(pw) },
+                      { label: 'One number', test: (pw: string) => /[0-9]/.test(pw) },
+                      { label: 'One special character', test: (pw: string) => /[^A-Za-z0-9]/.test(pw) },
+                      { label: 'No spaces', test: (pw: string) => !/\s/.test(pw) },
+                    ].map((rule) => {
+                      const passed = password ? rule.test(password) : false;
+                      return (
+                        <div key={rule.label} className="flex items-center gap-1.5 text-xs">
+                          <span className={passed ? 'text-green-400' : 'text-text-muted'}>
+                            {passed ? '✓' : '○'}
+                          </span>
+                          <span className={passed ? 'text-green-400' : 'text-text-muted'}>{rule.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <GlowButton
@@ -310,13 +390,13 @@ function LoginForm() {
             <p className="mt-6 text-center text-sm text-text-muted">
               {mode === 'signin' ? (
                 <>Don&apos;t have an account?{' '}
-                  <button onClick={() => { setMode('signup'); setError(null); }} className="text-teal-400 hover:underline">
+                  <button onClick={() => { setMode('signup'); setError(null); setPasswordErrors([]); }} className="text-teal-400 hover:underline">
                     Sign up
                   </button>
                 </>
               ) : (
                 <>Already have an account?{' '}
-                  <button onClick={() => { setMode('signin'); setError(null); }} className="text-teal-400 hover:underline">
+                  <button onClick={() => { setMode('signin'); setError(null); setPasswordErrors([]); }} className="text-teal-400 hover:underline">
                     Sign in
                   </button>
                 </>
