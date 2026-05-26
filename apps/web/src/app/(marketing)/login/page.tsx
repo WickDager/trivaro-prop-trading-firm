@@ -66,22 +66,27 @@ function LoginForm() {
       }
       router.push(redirect);
     } else {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { first_name: firstName, last_name: lastName },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      if (signUpError) {
-        setError(signUpError.message);
+      try {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { first_name: firstName, last_name: lastName },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (signUpError) {
+          setError(signUpError.message);
+          setStep('idle');
+          return;
+        }
+        // Sign them out so they must verify email before accessing dashboard
+        await supabase.auth.signOut();
+        setStep('check_email');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Connection error. Please check your network and try again.');
         setStep('idle');
-        return;
       }
-      // Sign them out so they must verify email before accessing dashboard
-      await supabase.auth.signOut();
-      setStep('check_email');
     }
   }
 
