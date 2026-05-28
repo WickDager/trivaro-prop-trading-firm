@@ -34,8 +34,24 @@ function LoginForm() {
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) router.push(redirect);
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (data.user) {
+        router.push(redirect);
+      } else if (error && error.message.includes('ISO-8859')) {
+        // Clear corrupted localStorage from previous broken deployments
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('sb-')) localStorage.removeItem(key);
+        });
+        window.location.reload();
+      }
+    }).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('ISO-8859')) {
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('sb-')) localStorage.removeItem(key);
+        });
+        window.location.reload();
+      }
     });
   }, [supabase, router, redirect]);
 
@@ -76,6 +92,14 @@ function LoginForm() {
           },
         });
         if (signUpError) {
+          if (signUpError.message.includes('ISO-8859') || signUpError.message.includes('RequestInit')) {
+            Object.keys(localStorage).forEach((key) => {
+              if (key.startsWith('sb-')) localStorage.removeItem(key);
+            });
+            setError('Session error cleared. Please try signing up again.');
+            setStep('idle');
+            return;
+          }
           setError(signUpError.message);
           setStep('idle');
           return;
