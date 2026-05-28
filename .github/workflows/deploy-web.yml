@@ -1,4 +1,4 @@
-name: Deploy Web App
+name: CI - Web App
 on:
   push:
     branches: [main]
@@ -6,14 +6,15 @@ on:
       - 'apps/web/**'
       - 'packages/**'
       - '.github/workflows/deploy-web.yml'
+
 jobs:
-  deploy:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Create Vercel project config
-        run: |
-          mkdir -p .vercel
-          echo "{\"projectId\":\"${{ secrets.VERCEL_PROJECT_ID }}\",\"orgId\":\"${{ secrets.VERCEL_ORG_ID }}\"}" > .vercel/project.json
-      - name: Deploy to Vercel
-        run: npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
