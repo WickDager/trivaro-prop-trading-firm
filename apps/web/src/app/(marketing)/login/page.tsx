@@ -83,24 +83,26 @@ function LoginForm() {
       router.push(redirect);
     } else {
       try {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { first_name: firstName, last_name: lastName },
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
-        if (signUpError) {
-          if (signUpError.message.includes('ISO-8859') || signUpError.message.includes('RequestInit')) {
-            Object.keys(localStorage).forEach((key) => {
-              if (key.startsWith('sb-')) localStorage.removeItem(key);
-            });
-            setError('Session error cleared. Please try signing up again.');
-            setStep('idle');
-            return;
+        // Use direct fetch to avoid Supabase client header encoding issue in Turbopack builds
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/signup`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              'X-Supabase-Api-Version': '2024-01-01',
+            },
+            body: JSON.stringify({
+              email,
+              password,
+              data: { first_name: firstName, last_name: lastName },
+            }),
           }
-          setError(signUpError.message);
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ msg: res.statusText }));
+          setError(err.msg || err.message || 'Signup failed');
           setStep('idle');
           return;
         }
