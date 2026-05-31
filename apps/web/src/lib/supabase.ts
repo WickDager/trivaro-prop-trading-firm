@@ -1,5 +1,8 @@
+import { createBrowserClient as createSsrBrowserClient, createServerClient as createSsrServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 function stripBOM(s: string): string {
   return s.replace(/^﻿/, '');
@@ -13,19 +16,35 @@ function getSupabaseAnonKey(): string {
   return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder');
 }
 
-type SupabaseClient = ReturnType<typeof createClient<Database>>;
+export function createBrowserClient() {
+  return createSsrBrowserClient<Database>(getSupabaseUrl(), getSupabaseAnonKey());
+}
 
-let browserClient: SupabaseClient | null = null;
+export function createServerClient(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
 
-export function createBrowserClient(): SupabaseClient {
-  if (browserClient) return browserClient;
-  browserClient = createClient<Database>(getSupabaseUrl(), getSupabaseAnonKey(), {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+  const supabase = createSsrServerClient<Database>(
+    getSupabaseUrl(),
+    getSupabaseAnonKey(),
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options),
+          );
+        },
+      },
     },
-  });
-  return browserClient;
+  );
+
+  return { supabase, supabaseResponse };
 }
 
 export function createServiceClient() {

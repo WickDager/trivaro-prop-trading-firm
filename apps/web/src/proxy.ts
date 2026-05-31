@@ -1,32 +1,38 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@/lib/supabase';
 
 const protectedPaths = ['/dashboard', '/challenge', '/payments', '/settings', '/admin'];
 const authPaths = ['/login', '/auth'];
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
   const isAuthPage = authPaths.some((p) => pathname.startsWith(p));
 
-  const sessionCookie = request.cookies.get('sb-access-token')?.value
-    ?? request.cookies.get('sb-refresh-token')?.value;
+  const { supabase, supabaseResponse } = createServerClient(request);
 
-  if (isProtected && !sessionCookie) {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (isProtected && !user) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirect = NextResponse.redirect(loginUrl);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirect.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return redirect;
   }
 
-  if (isAuthPage && sessionCookie) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  if (isAuthPage && user) {
+    const redirect = NextResponse.redirect(new URL('/dashboard', request.url));
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirect.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return redirect;
   }
 
-  const requestHeaders = new Headers(request.headers);
-
-  const response = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
+  const response = supabaseResponse;
 
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
