@@ -42,6 +42,15 @@ export const CHALLENGE_PRICING: ChallengePricing[] = [
     minTradingDays: 5,
   },
   {
+    accountSize: 75000,
+    balanceChallenge: 424,
+    equityChallenge: 349,
+    profitTarget: 8,
+    maxDrawdown: 5,
+    dailyDrawdown: 3,
+    minTradingDays: 5,
+  },
+  {
     accountSize: 100000,
     balanceChallenge: 549,
     equityChallenge: 449,

@@ -11,52 +11,97 @@ import { PhaseProgress } from '@/components/dashboard/PhaseProgress';
 import { GradientText } from '@/components/shared/GradientText';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Challenge } from '@trivaro/shared-types';
-import { TrendingUp, DollarSign, Activity } from 'lucide-react';
+import { TrendingUp, DollarSign, Activity, AlertCircle } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
+import type { Database } from '@/types';
 
-const mockTrades = [
-  { id: '1', challenge_id: '1', symbol: 'EUR/USD', type: 'buy', lots: 0.5, open_price: 1.08245, close_price: 1.08423, profit: 89.00, open_time: '2026-05-20T10:00:00Z', close_time: '2026-05-20T14:30:00Z' },
-  { id: '2', challenge_id: '1', symbol: 'GBP/USD', type: 'sell', lots: 0.3, open_price: 1.26893, close_price: 1.26621, profit: 81.60, open_time: '2026-05-21T09:15:00Z', close_time: '2026-05-21T16:45:00Z' },
-  { id: '3', challenge_id: '1', symbol: 'XAU/USD', type: 'buy', lots: 0.1, open_price: 2358.40, close_price: 2365.80, profit: 74.00, open_time: '2026-05-22T08:00:00Z', close_time: '2026-05-22T12:00:00Z' },
-  { id: '4', challenge_id: '1', symbol: 'BTC/USD', type: 'buy', lots: 0.05, open_price: 67432, close_price: 68100, profit: 33.40, open_time: '2026-05-23T15:20:00Z', close_time: '2026-05-23T18:10:00Z' },
-];
+type TradeRow = Database['public']['Tables']['trades']['Row'];
+type EquitySnapshotRow = Database['public']['Tables']['equity_snapshots']['Row'];
 
-const mockEquity = Array.from({ length: 30 }, (_, i) => ({
-  date: `Day ${i + 1}`,
-  equity: 10000 + Math.sin(i * 0.5) * 300 + i * 25,
-}));
+function getPhaseNumber(status: string): number {
+  if (status === 'active' || status === 'phase1_complete') return 1;
+  if (status === 'phase2_complete') return 2;
+  if (status === 'funded') return 3;
+  return 1;
+}
 
-const mockChallenge: Challenge = {
-  id: '1',
-  order_id: 'order-1',
-  user_id: 'user-1',
-  account_number: 'TV-10001',
-  account_password: null,
-  server: 'Trivaro-Demo',
-  profit_target: 10800,
-  max_drawdown: 5,
-  daily_drawdown: 3,
-  min_trading_days: 5,
-  status: 'active',
-  current_equity: 10350,
-  highest_equity: 10420,
-  lowest_equity: 9850,
-  total_trades: 47,
-  winning_trades: 31,
-  created_at: new Date(Date.now() - 14 * 86400000).toISOString(),
-  updated_at: new Date().toISOString(),
-};
+function getPhaseLabel(status: string): string {
+  if (status === 'active') return 'Phase 1';
+  if (status === 'phase1_complete') return 'Phase 2';
+  if (status === 'phase2_complete') return 'Phase 2';
+  if (status === 'funded') return 'Funded';
+  return 'Phase 1';
+}
 
 export default function DashboardPage() {
   const { supabase } = useSupabase();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [trades, setTrades] = useState<TradeRow[]>([]);
+  const [equityData, setEquityData] = useState<{ date: string; equity: number }[]>([]);
+  const [noChallenge, setNoChallenge] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user ?? null);
+    async function load() {
+      const { data: authData } = await supabase.auth.getUser();
+      const u = authData.user ?? null;
+      setUser(u);
+
+      if (!u) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch active challenge
+      const { data: challengeData, error: challengeErr } = await supabase
+        .from('challenges')
+        .select('*')
+        .eq('user_id', u.id)
+        .in('status', ['active', 'phase1_complete', 'phase2_complete', 'funded'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (challengeErr || !challengeData) {
+        setNoChallenge(true);
+        setLoading(false);
+        return;
+      }
+
+      const c = challengeData as unknown as Challenge;
+      setChallenge(c);
+
+      // Fetch trades
+      const { data: tradesData } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('challenge_id', c.id)
+        .order('close_time', { ascending: false })
+        .limit(50);
+
+      setTrades((tradesData ?? []) as unknown as TradeRow[]);
+
+      // Fetch equity snapshots
+      const { data: snapshots } = await supabase
+        .from('equity_snapshots')
+        .select('snapshot_date, equity')
+        .eq('challenge_id', c.id)
+        .order('snapshot_date', { ascending: true });
+
+      if (snapshots && snapshots.length > 0) {
+        setEquityData(
+          snapshots.map((s: EquitySnapshotRow) => ({
+            date: new Date(s.snapshot_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            equity: s.equity,
+          })),
+        );
+      }
+
       setLoading(false);
-    });
+    }
+
+    load();
   }, [supabase]);
 
   if (loading) {
@@ -81,8 +126,37 @@ export default function DashboardPage() {
     );
   }
 
-  const profitPercent = ((mockChallenge.current_equity! - 10000) / 10000) * 100;
-  const drawdown = ((mockChallenge.highest_equity! - mockChallenge.lowest_equity!) / mockChallenge.highest_equity!) * 100;
+  if (noChallenge || !challenge) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">
+            Welcome, <GradientText as="span">{user.email?.split('@')[0] ?? 'Trader'}</GradientText>
+          </h1>
+        </div>
+        <div className="flex h-[40vh] flex-col items-center justify-center rounded-xl border border-teal-500/10 bg-navy-700/60 p-8 text-center">
+          <AlertCircle className="mb-4 h-12 w-12 text-text-muted" />
+          <h2 className="mb-2 font-heading text-xl font-bold">No Active Challenge</h2>
+          <p className="text-sm text-text-secondary">You don&apos;t have an active challenge yet. Start one to begin trading.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const startingBalance = challenge.starting_balance || 10000;
+  const equity = challenge.current_equity ?? startingBalance;
+  const profitPercent = ((equity - startingBalance) / startingBalance) * 100;
+
+  const highestEquity = challenge.highest_equity ?? equity;
+  const drawdown = highestEquity > 0 ? ((highestEquity - equity) / highestEquity) * 100 : 0;
+
+  const profitTargetDollars = startingBalance * 0.08;
+  const phase = getPhaseNumber(challenge.status);
+
+  // Fallback equity chart if no snapshots yet
+  const chartData = equityData.length > 0
+    ? equityData
+    : [{ date: 'Start', equity: startingBalance }];
 
   return (
     <div className="space-y-8">
@@ -100,7 +174,7 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-teal-400" />
           </CardHeader>
           <CardContent>
-            <p className="font-heading text-2xl font-bold">${mockChallenge.current_equity?.toLocaleString()}</p>
+            <p className="font-heading text-2xl font-bold">${equity.toLocaleString()}</p>
             <p className={`text-xs ${profitPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {profitPercent >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%
             </p>
@@ -113,8 +187,8 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-green-400" />
           </CardHeader>
           <CardContent>
-            <p className="font-heading text-2xl font-bold">$800</p>
-            <p className="text-xs text-text-muted">8% of $10K account</p>
+            <p className="font-heading text-2xl font-bold">${profitTargetDollars.toLocaleString()}</p>
+            <p className="text-xs text-text-muted">8% of ${startingBalance.toLocaleString()} account</p>
           </CardContent>
         </Card>
 
@@ -124,8 +198,8 @@ export default function DashboardPage() {
             <Activity className="h-4 w-4 text-teal-400" />
           </CardHeader>
           <CardContent>
-            <p className="font-heading text-2xl font-bold">{mockChallenge.total_trades}</p>
-            <p className="text-xs text-text-muted">{mockChallenge.winning_trades} winning</p>
+            <p className="font-heading text-2xl font-bold">{challenge.total_trades}</p>
+            <p className="text-xs text-text-muted">{challenge.winning_trades} winning ({challenge.trading_days} days)</p>
           </CardContent>
         </Card>
 
@@ -135,29 +209,29 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-teal-400" />
           </CardHeader>
           <CardContent>
-            <p className="font-heading text-2xl font-bold">Phase 1</p>
-            <p className="text-xs text-text-muted">of 2</p>
+            <p className="font-heading text-2xl font-bold">{getPhaseLabel(challenge.status)}</p>
+            <p className="text-xs text-text-muted">{challenge.status === 'funded' ? 'Complete' : `of 2`}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <EquityChart data={mockEquity} />
+          <EquityChart data={chartData} />
         </div>
         <div className="flex flex-col items-center justify-center rounded-xl border border-teal-500/10 bg-navy-700/60 p-6">
-          <DrawdownMeter current={drawdown} max={mockChallenge.max_drawdown} />
+          <DrawdownMeter current={drawdown} max={challenge.max_drawdown} />
         </div>
       </div>
 
-      <PhaseProgress currentPhase={1} />
+      <PhaseProgress currentPhase={phase} />
 
       <Card>
         <CardHeader>
           <CardTitle>Recent Trades</CardTitle>
         </CardHeader>
         <CardContent>
-          <TradeHistory trades={mockTrades} />
+          <TradeHistory trades={trades} loading={false} />
         </CardContent>
       </Card>
     </div>

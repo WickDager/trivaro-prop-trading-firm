@@ -16,15 +16,9 @@ jobs:
       - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      - run: supabase functions deploy telegram-webhook --use-api --import-map "./supabase/functions/import_map.json"
+      - run: supabase functions deploy receive-trade --use-api --import-map "./supabase/functions/import_map.json"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      - run: supabase functions deploy verify-payment --use-api --import-map "./supabase/functions/import_map.json"
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      - run: supabase functions deploy create-challenge --use-api --import-map "./supabase/functions/import_map.json"
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      - run: supabase functions deploy send-credentials --use-api --import-map "./supabase/functions/import_map.json"
+      - run: supabase functions deploy send-notification --use-api --import-map "./supabase/functions/import_map.json"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

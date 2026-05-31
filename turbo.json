@@ -16,7 +16,9 @@
         "NEXT_PUBLIC_SUPABASE_ANON_KEY",
         "NEXT_PUBLIC_APP_URL",
         "NEXT_PUBLIC_APP_NAME",
-        "NEXT_PUBLIC_TELEGRAM_BOT_USERNAME"
+        "NEXT_PUBLIC_TELEGRAM_BOT_USERNAME",
+        "MT5_API_SECRET",
+        "EDGE_FUNCTION_API_KEY"
       ]
     },
     "dev": {

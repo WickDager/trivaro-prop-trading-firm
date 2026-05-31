@@ -18,6 +18,11 @@ export interface Challenge {
   total_trades: number;
   winning_trades: number;
   created_at: string;
+  starting_balance: number;
+  daily_peak_equity: number | null;
+  daily_peak_date: string | null;
+  trading_days: number;
+  last_trade_date: string | null;
   updated_at: string;
 }
 

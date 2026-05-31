@@ -77,10 +77,10 @@ export default function PaymentsPage() {
         <div className="space-y-4">
           {payments.map((payment) => (
             <Card key={payment.id}>
-              <CardContent className="flex items-center justify-between p-6">
-                <div>
-                  <p className="font-medium">{payment.payment_id}</p>
-                  <div className="mt-1 flex items-center gap-3 text-sm text-text-secondary">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{payment.payment_id}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
                     <span>${payment.amount_usd}</span>
                     <span>{payment.crypto_currency} ({payment.network})</span>
                     <span>${(payment.account_size / 1000).toFixed(0)}K account</span>

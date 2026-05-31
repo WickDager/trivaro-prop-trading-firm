@@ -61,6 +61,11 @@ export interface Database {
           current_equity: number | null;
           highest_equity: number | null;
           lowest_equity: number | null;
+          starting_balance: number;
+          daily_peak_equity: number | null;
+          daily_peak_date: string | null;
+          trading_days: number;
+          last_trade_date: string | null;
           total_trades: number;
           winning_trades: number;
           created_at: string;
@@ -71,6 +76,7 @@ export interface Database {
         Row: {
           id: string;
           challenge_id: string;
+          external_id: string | null;
           symbol: string;
           type: string | null;
           lots: number | null;
@@ -129,6 +135,35 @@ export interface Database {
           target_id: string;
           details: Record<string, unknown>;
           ip_address: string | null;
+          created_at: string;
+        };
+      };
+      equity_snapshots: {
+        Row: {
+          id: string;
+          challenge_id: string;
+          snapshot_date: string;
+          equity: number;
+          peak_equity: number;
+          daily_peak: number;
+          trade_count: number;
+          created_at: string;
+        };
+      };
+      notification_log: {
+        Row: {
+          id: string;
+          challenge_id: string;
+          user_id: string;
+          type: string;
+          status: string;
+          recipient_email: string;
+          subject: string;
+          rule_violated: string | null;
+          equity_at_time: number | null;
+          metadata: Record<string, unknown>;
+          sent_at: string | null;
+          error_message: string | null;
           created_at: string;
         };
       };

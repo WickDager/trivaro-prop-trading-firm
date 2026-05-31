@@ -9,8 +9,6 @@ import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 
 const navLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/challenges', label: 'Challenges' },
   { href: '/how-it-works', label: 'How It Works' },
 ];
 
@@ -47,43 +45,39 @@ export function Navbar() {
           <Logo className="h-10" />
         </Link>
 
-        <div className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-sm text-text-secondary transition-colors hover:text-white"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="md:hidden">
             <MobileNav />
           </div>
+          <div className="hidden items-center gap-8 md:flex">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-sm text-text-secondary transition-colors hover:text-white"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
           {user ? (
-            <>
+            <div className="flex items-center gap-2">
               <Link href="/dashboard">
                 <Button variant="ghost" size="sm">Dashboard</Button>
               </Link>
               <Button variant="outline" size="sm" onClick={signOut}>
                 Sign Out
               </Button>
-            </>
+            </div>
           ) : (
-            <>
+            <div className="flex items-center gap-2">
               <Link href="/login">
                 <Button variant="ghost" size="sm">Sign In</Button>
               </Link>
               <Link href="/challenges">
-                <Button variant="ghost" size="sm">Get Started</Button>
-              </Link>
-              <Link href="/challenges">
                 <Button variant="glow" size="sm">Start Challenge</Button>
               </Link>
-            </>
+            </div>
           )}
         </div>
       </nav>
