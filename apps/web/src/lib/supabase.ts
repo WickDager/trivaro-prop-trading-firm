@@ -1,12 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types';
 
+function stripBOM(s: string): string {
+  return s.replace(/^﻿/, '');
+}
+
 function getSupabaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+  return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321');
 }
 
 function getSupabaseAnonKey(): string {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
+  return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder');
 }
 
 type SupabaseClient = ReturnType<typeof createClient<Database>>;

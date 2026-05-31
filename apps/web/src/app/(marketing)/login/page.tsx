@@ -8,6 +8,7 @@ import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GradientText } from '@/components/shared/GradientText';
 import { GlowButton } from '@/components/shared/GlowButton';
 import { useSupabase } from '@/hooks/useSupabase';
+import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/supabase';
 import {
   Mail, Lock, Chrome, SendHorizonal,
   Eye, EyeOff, Loader2, AlertCircle, CheckCircle2,
@@ -85,12 +86,12 @@ function LoginForm() {
       try {
         // Use direct fetch to avoid Supabase client header encoding issue in Turbopack builds
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/signup`,
+          `${getSupabaseUrl()}/auth/v1/signup`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              'apikey': getSupabaseAnonKey(),
               'X-Supabase-Api-Version': '2024-01-01',
             },
             body: JSON.stringify({
