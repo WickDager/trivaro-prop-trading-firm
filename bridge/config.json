@@ -1,0 +1,18 @@
+{
+  "supabase_url": "https://dfqmzieisdtdwhkfzacv.supabase.co",
+  "supabase_service_role_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmcW16aWVpc2R0ZHdoa2Z6YWN2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTcyMzA2NSwiZXhwIjoyMDk1Mjk5MDY1fQ.1JFmly0Khc0PE48DiRu4R9tzYZ_c8bydBtZdTb4AdbI",
+  "endpoint_url": "https://dfqmzieisdtdwhkfzacv.supabase.co/functions/v1/receive-trade",
+  "api_secret": "1nSKduUFQY4l0a6hxIoBc8izJtebryWOHg5PpMmGTjs9ZVXE",
+  "accounts": [
+    {
+      "challenge_account_number": "TV-000001",
+      "mt5_login": 0,
+      "mt5_password": "",
+      "mt5_server": "",
+      "is_investor": true
+    }
+  ],
+  "poll_interval_seconds": 60,
+  "state_file": "bridge_state.json",
+  "log_file": "bridge.log"
+}
