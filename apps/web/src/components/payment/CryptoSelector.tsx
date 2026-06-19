@@ -25,7 +25,7 @@ interface CryptoSelectorProps {
 
 export function CryptoSelector({ onSelect, selected }: CryptoSelectorProps) {
   return (
-    <div className="flex gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row">
       {options.map((opt) => (
         <button
           key={`${opt.currency}-${opt.network}`}

@@ -1,6 +1,12 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@/components/ui/toast';
 import '@/styles/globals.css';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#0A1628',
+};
 
 export const metadata: Metadata = {
   title: 'Trivaro — Prop Trading Firm',
@@ -27,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-navy-800 antialiased">
+      <body className="min-h-screen overflow-x-hidden bg-navy-800 antialiased">
         {children}
         <Toaster />
       </body>

@@ -23,7 +23,7 @@ export function Stats() {
           {stats.map((stat, i) => (
             <RevealOnScroll key={stat.label} delay={i * 0.1}>
               <div className="text-center">
-                <p className="font-heading text-4xl font-bold text-teal-400 sm:text-5xl">
+                <p className="font-heading text-3xl font-bold text-teal-400 sm:text-4xl md:text-5xl">
                   <CountUp
                     end={stat.value}
                     prefix={stat.prefix ?? ''}

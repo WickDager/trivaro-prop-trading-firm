@@ -52,7 +52,7 @@ export function Testimonials() {
             {doubled.map((t, i) => (
               <div
                 key={i}
-                className="w-80 shrink-0 rounded-xl border border-teal-500/10 bg-navy-700/60 p-6"
+                className="w-[280px] shrink-0 rounded-xl border border-teal-500/10 bg-navy-700/60 p-6 sm:w-80"
               >
                 <div className="mb-3 flex gap-1">
                   {Array.from({ length: t.rating }).map((_, j) => (

@@ -46,15 +46,12 @@ export function Navbar() {
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="md:hidden">
-            <MobileNav />
-          </div>
           <div className="hidden items-center gap-8 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm text-text-secondary transition-colors hover:text-white"
+                className="rounded-lg px-1 py-2 text-sm text-text-secondary transition-colors hover:text-white"
               >
                 {link.label}
               </Link>
@@ -79,6 +76,9 @@ export function Navbar() {
               </Link>
             </div>
           )}
+          <div className="md:hidden">
+            <MobileNav />
+          </div>
         </div>
       </nav>
     </header>

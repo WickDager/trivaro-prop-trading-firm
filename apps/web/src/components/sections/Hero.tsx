@@ -7,13 +7,13 @@ import { GradientText } from '@/components/shared/GradientText';
 
 export function Hero() {
   return (
-    <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 pt-16">
+    <section className="relative flex min-h-screen items-center justify-center px-4 pt-16">
       <div className="relative z-10 mx-auto max-w-5xl text-center">
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1 }}
-          className="font-heading text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
+          className="font-heading text-3xl font-bold break-words leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
         >
           From Demo to{' '}
           <GradientText as="span">Funded</GradientText>
@@ -25,7 +25,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="mx-auto mt-6 max-w-2xl text-lg text-text-secondary"
+          className="mx-auto mt-6 max-w-2xl px-4 text-base text-text-secondary sm:text-lg"
         >
           Prove your skills in a simulated environment. Pass our challenge, get funded with real capital,
           and keep up to 90% of the profits. No strings attached.
@@ -41,7 +41,7 @@ export function Hero() {
             <GlowButton size="xl">Start Your Challenge</GlowButton>
           </Link>
           <Link href="/how-it-works">
-            <button className="rounded-xl border border-teal-500/30 px-8 py-3.5 text-sm font-medium text-teal-400 transition-all hover:bg-teal-500/10">
+            <button className="rounded-xl border border-white/40 bg-white/5 px-8 py-3.5 text-sm font-medium text-white transition-all hover:bg-white/10 hover:border-white/60">
               How It Works
             </button>
           </Link>

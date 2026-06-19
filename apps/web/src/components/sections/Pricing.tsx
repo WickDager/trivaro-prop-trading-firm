@@ -23,8 +23,8 @@ export function Pricing() {
           </div>
         </RevealOnScroll>
 
-        <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-          {CHALLENGE_PRICING.slice(0, 4).map((challenge, i) => (
+        <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {CHALLENGE_PRICING.map((challenge, i) => (
             <RevealOnScroll key={challenge.accountSize} delay={i * 0.1}>
               <motion.div
                 whileHover={{ y: -5 }}
@@ -32,7 +32,7 @@ export function Pricing() {
               >
                 <div className="mb-6">
                   <p className="text-sm text-text-muted">Account</p>
-                  <p className="font-heading text-2xl font-bold">
+                  <p className="font-heading text-3xl font-bold">
                     ${(challenge.accountSize / 1000).toFixed(0)}K
                   </p>
                 </div>

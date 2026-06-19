@@ -8,5 +8,6 @@ dist/
 .DS_Store
 .vercel
 supabase/.temp/
+bridge/config.json
 *.tsbuildinfo
 -w

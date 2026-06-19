@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface Particle {
   x: number;
@@ -13,7 +14,7 @@ interface Particle {
 
 export function ParticleField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef({ x: -1000, y: -1000 });
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -24,7 +25,8 @@ export function ParticleField() {
 
     let animationId: number;
     const particles: Particle[] = [];
-    const PARTICLE_COUNT = 60;
+    const PARTICLE_COUNT = isMobile ? 12 : 50;
+    const LINE_DIST = isMobile ? 60 : 120;
 
     function resize() {
       if (!canvas) return;
@@ -38,10 +40,10 @@ export function ParticleField() {
         particles.push({
           x: Math.random() * (canvas?.width ?? 1920),
           y: Math.random() * (canvas?.height ?? 1080),
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5,
+          vx: (Math.random() - 0.5) * (isMobile ? 0.3 : 0.5),
+          vy: (Math.random() - 0.5) * (isMobile ? 0.3 : 0.5),
           size: Math.random() * 2 + 0.5,
-          opacity: Math.random() * 0.5 + 0.1,
+          opacity: Math.random() * 0.4 + 0.1,
         });
       }
     }
@@ -51,15 +53,6 @@ export function ParticleField() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       for (const p of particles) {
-        const dx = mouseRef.current.x - p.x;
-        const dy = mouseRef.current.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < 200) {
-          p.vx -= dx / dist * 0.02;
-          p.vy -= dy / dist * 0.02;
-        }
-
         p.x += p.vx;
         p.y += p.vy;
 
@@ -72,17 +65,20 @@ export function ParticleField() {
         ctx.fill();
       }
 
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(0, 217, 255, ${0.1 * (1 - dist / 120)})`;
-            ctx.stroke();
+      // Only draw connections if not on mobile (fewer particles = fewer pairs anyway)
+      if (!isMobile) {
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < LINE_DIST) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = `rgba(0, 217, 255, ${0.1 * (1 - dist / LINE_DIST)})`;
+              ctx.stroke();
+            }
           }
         }
       }
@@ -90,28 +86,22 @@ export function ParticleField() {
       animationId = requestAnimationFrame(animate);
     }
 
-    function onMouseMove(e: MouseEvent) {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
-    }
-
     resize();
     initParticles();
     animate();
 
     window.addEventListener('resize', resize);
-    window.addEventListener('mousemove', onMouseMove);
-
     return () => {
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', resize);
-      window.removeEventListener('mousemove', onMouseMove);
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <canvas
       ref={canvasRef}
       className="pointer-events-none fixed inset-0 -z-10"
+      aria-hidden="true"
     />
   );
 }

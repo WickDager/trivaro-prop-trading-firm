@@ -10,7 +10,7 @@ export function CTA() {
     <section className="relative px-4 py-24 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
         <RevealOnScroll>
-          <div className="relative overflow-hidden rounded-2xl border border-teal-500/10 bg-gradient-to-br from-navy-700 to-navy-800 p-12 text-center sm:p-16">
+          <div className="relative overflow-hidden rounded-2xl border border-teal-500/10 bg-gradient-to-br from-navy-700 to-navy-800 p-8 text-center sm:p-12 lg:p-16">
             <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-teal-500/10 blur-[80px]" />
             <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-green-500/10 blur-[80px]" />
 
@@ -28,7 +28,7 @@ export function CTA() {
                   <GlowButton size="xl">Start Your Journey</GlowButton>
                 </Link>
                 <Link href="/how-it-works">
-                  <button className="rounded-xl border border-teal-500/30 px-8 py-3.5 text-sm font-medium text-teal-400 transition-all hover:bg-teal-500/10">
+                  <button className="rounded-xl border border-white/40 bg-white/5 px-8 py-3.5 text-sm font-medium text-white transition-all hover:bg-white/10 hover:border-white/60">
                     Learn More
                   </button>
                 </Link>
