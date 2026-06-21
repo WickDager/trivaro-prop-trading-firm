@@ -10,6 +10,8 @@ import type { User } from '@supabase/supabase-js';
 
 const navLinks = [
   { href: '/how-it-works', label: 'How It Works' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/challenges', label: 'Challenges' },
 ];
 
 export function Navbar() {

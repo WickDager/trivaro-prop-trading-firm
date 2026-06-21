@@ -11,23 +11,23 @@ import {
   LayoutDashboard,
   TrendingUp,
   Wallet,
-  Settings,
   HelpCircle,
+  DollarSign,
+  Info,
   Shield,
   LogOut,
 } from 'lucide-react';
 
 const marketingLinks = [
   { href: '/how-it-works', label: 'How It Works', icon: HelpCircle },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/pricing', label: 'Pricing', icon: DollarSign },
+  { href: '/challenges', label: 'Challenges', icon: TrendingUp },
+  { href: '/about', label: 'About', icon: Info },
 ];
 
 const dashboardLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/challenges', label: 'Challenges', icon: TrendingUp },
   { href: '/payments', label: 'Payments', icon: Wallet },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
-  { href: '/dashboard/support', label: 'Support', icon: HelpCircle },
 ];
 
 interface MobileNavProps {
@@ -43,7 +43,7 @@ export function MobileNav({ variant = 'marketing' }: MobileNavProps) {
   return (
     <Sheet>
       <SheetTrigger>
-        <Button variant="ghost" size="icon" className={variant === 'dashboard' ? 'lg:hidden' : 'md:hidden'}>
+        <Button variant="ghost" size="icon" aria-label="Open navigation menu" className={variant === 'dashboard' ? 'lg:hidden' : 'md:hidden'}>
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>

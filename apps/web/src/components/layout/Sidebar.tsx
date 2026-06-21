@@ -7,10 +7,7 @@ import { cn } from '@/lib/utils';
 import { Logo } from '@/components/shared/Logo';
 import {
   LayoutDashboard,
-  TrendingUp,
   Wallet,
-  Settings,
-  HelpCircle,
   Shield,
   LogOut,
 } from 'lucide-react';
@@ -20,10 +17,7 @@ import { Button } from '@/components/ui/button';
 
 const sidebarLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/challenges', label: 'Challenges', icon: TrendingUp },
   { href: '/payments', label: 'Payments', icon: Wallet },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
-  { href: '/dashboard/support', label: 'Support', icon: HelpCircle },
 ];
 
 export function Sidebar() {
@@ -76,7 +70,7 @@ export function Sidebar() {
                 <Link
                   href="/admin"
                   className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                    'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
                     pathname.startsWith('/admin')
                       ? 'bg-amber-500/10 text-amber-400'
                       : 'text-text-secondary hover:bg-navy-700 hover:text-white',

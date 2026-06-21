@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GlowButton } from '@/components/shared/GlowButton';
@@ -8,16 +9,28 @@ import { GradientText } from '@/components/shared/GradientText';
 import { CryptoSelector } from '@/components/payment/CryptoSelector';
 import { TelegramRedirect } from '@/components/payment/TelegramRedirect';
 import { CHALLENGE_PRICING } from '@/lib/constants';
-import { Check, Info } from 'lucide-react';
+import { useSupabase } from '@/hooks/useSupabase';
+import { Loader2, Check, Info, LogIn, Shield, Lock } from 'lucide-react';
 
 export default function ChallengesPage() {
+  const router = useRouter();
+  const { supabase } = useSupabase();
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [selectedCrypto, setSelectedCrypto] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(false);
 
   const selectedPricing = CHALLENGE_PRICING.find((p) => p.accountSize === selectedSize);
 
-  function handleStartPayment() {
+  async function handleStartPayment() {
+    setCheckingAuth(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const size = selectedSize ?? '';
+      router.push(`/login?redirect=/challenges?size=${size}`);
+      return;
+    }
+    setCheckingAuth(false);
     const id = `TV-2026-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
     setPaymentId(id);
   }
@@ -100,8 +113,13 @@ export default function ChallengesPage() {
                       </div>
                     </div>
 
-                    <GlowButton className="w-full" size="lg" onClick={handleStartPayment}>
-                      Pay with Crypto
+                    <div className="flex items-center justify-center gap-4 text-xs text-text-muted">
+                      <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-green-400" /> SSL Encrypted</span>
+                      <span className="flex items-center gap-1"><Lock className="h-3 w-3 text-green-400" /> Secure Payment</span>
+                      <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-green-400" /> Verified</span>
+                    </div>
+                    <GlowButton className="w-full" size="lg" onClick={handleStartPayment} disabled={checkingAuth}>
+                      {checkingAuth ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing you in...</> : 'Pay with Crypto'}
                     </GlowButton>
                   </div>
                 )}

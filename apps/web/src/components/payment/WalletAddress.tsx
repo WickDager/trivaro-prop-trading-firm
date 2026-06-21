@@ -21,6 +21,7 @@ export function WalletAddress({ address, label = 'Wallet Address' }: WalletAddre
         <button
           onClick={() => copy(address)}
           className="shrink-0 text-text-secondary hover:text-teal-400"
+          aria-label="Copy wallet address"
         >
           <Copy className="h-4 w-4" />
         </button>

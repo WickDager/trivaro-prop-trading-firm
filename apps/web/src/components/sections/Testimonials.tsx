@@ -1,6 +1,7 @@
 'use client';
 
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
+import { GradientText } from '@/components/shared/GradientText';
 import { Star } from 'lucide-react';
 
 const testimonials = [
@@ -39,7 +40,7 @@ export function Testimonials() {
         <RevealOnScroll>
           <div className="mb-16 text-center">
             <h2 className="font-heading text-3xl font-bold sm:text-4xl">
-              Trusted by <span className="gradient-text">Traders</span>
+              Trusted by <GradientText as="span">Traders</GradientText>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-text-secondary">
               Join hundreds of successful funded traders

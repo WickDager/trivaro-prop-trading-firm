@@ -23,7 +23,22 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_WEBHOOK_SECRET",
+        "TRONGRID_API_KEY",
+        "RESEND_API_KEY",
+        "HOT_WALLET_USDT_TRC20",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_APP_NAME",
+        "NEXT_PUBLIC_TELEGRAM_BOT_USERNAME",
+        "MT5_API_SECRET",
+        "EDGE_FUNCTION_API_KEY"
+      ]
     },
     "lint": {
       "dependsOn": ["^build"]

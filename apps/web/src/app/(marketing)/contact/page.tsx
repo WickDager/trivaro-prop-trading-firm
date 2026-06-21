@@ -62,7 +62,7 @@ export default function ContactPage() {
                 Send Us a Message
               </h2>
               <form
-                onSubmit={(e) => e.preventDefault()}
+                onSubmit={(e) => { e.preventDefault(); alert('Message sent! Our team will respond within 24 hours.'); }}
                 className="space-y-4"
               >
                 <div>

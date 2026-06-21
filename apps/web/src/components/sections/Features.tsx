@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
+import { GradientText } from '@/components/shared/GradientText';
 import { Shield, Zap, TrendingUp, Wallet, Globe, HeadphonesIcon } from 'lucide-react';
 
 const features = [
@@ -44,7 +45,7 @@ export function Features() {
         <RevealOnScroll>
           <div className="text-center">
             <h2 className="font-heading text-3xl font-bold sm:text-4xl">
-              Why Choose <span className="gradient-text">Trivaro</span>
+              Why Choose <GradientText as="span">Trivaro</GradientText>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-text-secondary">
               We provide everything you need to succeed as a funded trader

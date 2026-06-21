@@ -235,6 +235,15 @@ function LoginForm() {
                 ? 'Sign in to access your trading dashboard'
                 : 'Start your journey to becoming a funded trader'}
             </p>
+            {mode === 'signup' && (
+              <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-left">
+                <p className="text-xs font-semibold text-amber-400">Important</p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  Use your <strong className="text-white">full legal name</strong> exactly as it appears on your government-issued ID or passport.
+                  Mismatched names will delay account verification and payouts.
+                </p>
+              </div>
+            )}
           </div>
         </RevealOnScroll>
 
@@ -287,7 +296,7 @@ function LoginForm() {
               {mode === 'signup' && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label htmlFor="firstName" className="mb-1.5 block text-sm text-text-secondary">First Name</label>
+                    <label htmlFor="firstName" className="mb-1.5 block text-sm text-text-secondary">First Name <span className="text-text-muted">(as on ID)</span></label>
                     <input
                       id="firstName"
                       name="firstName"
@@ -300,7 +309,7 @@ function LoginForm() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="lastName" className="mb-1.5 block text-sm text-text-secondary">Last Name</label>
+                    <label htmlFor="lastName" className="mb-1.5 block text-sm text-text-secondary">Last Name <span className="text-text-muted">(as on ID)</span></label>
                     <input
                       id="lastName"
                       name="lastName"
@@ -342,7 +351,7 @@ function LoginForm() {
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    minLength={6}
+                    minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-lg border border-teal-500/10 bg-navy-800 py-2.5 pl-10 pr-10 text-sm text-white placeholder-text-muted focus:border-teal-400 focus:outline-none"

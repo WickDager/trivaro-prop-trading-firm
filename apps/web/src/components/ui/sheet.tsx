@@ -64,12 +64,19 @@ export function SheetTrigger({ children, className }: { children: React.ReactNod
   return React.cloneElement(child, { onClick: () => setOpen(true), className: cn(child.props.className, className) });
 }
 
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const selector = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  return Array.from(container.querySelectorAll<HTMLElement>(selector));
+}
+
 export function SheetContent({ children, side = 'bottom', className }: {
   children: React.ReactNode;
   side?: 'top' | 'bottom' | 'left' | 'right';
   className?: string;
 }) {
   const { open, setOpen } = useSheet();
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
 
   const sideClasses = {
     top: 'top-0 left-0 right-0',
@@ -87,6 +94,41 @@ export function SheetContent({ children, side = 'bottom', className }: {
 
   const variants = animVariants[side];
 
+  React.useEffect(() => {
+    if (open) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+      requestAnimationFrame(() => {
+        const container = contentRef.current;
+        if (!container) return;
+        const focusable = getFocusableElements(container);
+        if (focusable.length > 0) focusable[0].focus();
+      });
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return;
+      const container = contentRef.current;
+      if (!container) return;
+      const focusable = getFocusableElements(container);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -100,6 +142,9 @@ export function SheetContent({ children, side = 'bottom', className }: {
             onClick={() => setOpen(false)}
           />
           <motion.div
+            ref={contentRef}
+            role="dialog"
+            aria-modal="true"
             className={cn(
               'fixed z-50 border border-teal-500/10 bg-navy-800 p-6 shadow-2xl',
               side === 'bottom' && 'rounded-t-2xl',
