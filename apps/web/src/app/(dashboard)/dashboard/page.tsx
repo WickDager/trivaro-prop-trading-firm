@@ -47,16 +47,12 @@ export default function DashboardPage() {
       const { data: authData } = await supabase.auth.getUser();
       const u = authData.user ?? null;
       setUser(u);
+      if (!u) { setLoading(false); return; }
 
-      if (!u) {
-        setLoading(false);
-        return;
-      }
-
-      // Fetch active challenge
+      // Fetch challenge
       const { data: challengeData, error: challengeErr } = await supabase
         .from('challenges')
-        .select('*')
+        .select('id,status,current_equity,starting_balance,highest_equity,profit_target,max_drawdown,total_trades,winning_trades,trading_days,account_number,created_at')
         .eq('user_id', u.id)
         .in('status', ['active', 'phase1_complete', 'phase2_complete', 'funded'])
         .order('created_at', { ascending: false })
@@ -72,22 +68,13 @@ export default function DashboardPage() {
       const c = challengeData as unknown as Challenge;
       setChallenge(c);
 
-      // Fetch trades
-      const { data: tradesData } = await supabase
-        .from('trades')
-        .select('*')
-        .eq('challenge_id', c.id)
-        .order('close_time', { ascending: false })
-        .limit(50);
+      // Fetch trades + snapshots in parallel
+      const [{ data: tradesData }, { data: snapshots }] = await Promise.all([
+        supabase.from('trades').select('id,symbol,type,lots,profit,close_time').eq('challenge_id', c.id).order('close_time', { ascending: false }).limit(50),
+        supabase.from('equity_snapshots').select('snapshot_date,equity').eq('challenge_id', c.id).order('snapshot_date', { ascending: true }),
+      ]);
 
       setTrades((tradesData ?? []) as unknown as TradeRow[]);
-
-      // Fetch equity snapshots
-      const { data: snapshots } = await supabase
-        .from('equity_snapshots')
-        .select('snapshot_date, equity')
-        .eq('challenge_id', c.id)
-        .order('snapshot_date', { ascending: true });
 
       if (snapshots && snapshots.length > 0) {
         setEquityData(
