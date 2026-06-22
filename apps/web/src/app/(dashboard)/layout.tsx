@@ -19,9 +19,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <GridPattern />
         <Sidebar />
         <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-teal-500/10 bg-navy-900/80 px-4 backdrop-blur-xl lg:hidden">
-          <MobileNav variant="dashboard" />
           <span className="text-sm font-semibold text-text-secondary">Trivaro</span>
-          <div className="w-10" />
+          <MobileNav variant="dashboard" />
         </div>
         <main className="pt-14 lg:pl-64 lg:pt-0">
           <EmailVerificationBanner />

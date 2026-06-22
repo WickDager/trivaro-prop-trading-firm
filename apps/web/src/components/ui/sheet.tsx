@@ -146,7 +146,7 @@ export function SheetContent({ children, side = 'bottom', className }: {
             role="dialog"
             aria-modal="true"
             className={cn(
-              'fixed z-50 border border-teal-500/10 bg-navy-800 p-6 shadow-2xl',
+              'fixed z-50 border border-teal-500/10 bg-navy-800 p-6 shadow-2xl overscroll-contain',
               side === 'bottom' && 'rounded-t-2xl',
               sideClasses[side],
               side === 'bottom' && 'max-h-[85vh] overflow-y-auto',
@@ -157,7 +157,7 @@ export function SheetContent({ children, side = 'bottom', className }: {
             initial={variants.initial}
             animate={variants.animate}
             exit={variants.exit}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            transition={{ type: 'tween', ease: [0.32, 0.72, 0, 1], duration: 0.35 }}
           >
             <button
               onClick={() => setOpen(false)}
