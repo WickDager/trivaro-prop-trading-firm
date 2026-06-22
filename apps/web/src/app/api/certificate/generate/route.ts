@@ -37,11 +37,14 @@ export async function GET(request: Request) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('first_name, last_name')
       .eq('id', user.id)
-      .single() as unknown as { data: { full_name: string } | null };
+      .single();
 
-    const traderName = (profile as { full_name: string } | null)?.full_name || user.email?.split('@')[0] || 'Trader';
+    const p = profile as { first_name?: string; last_name?: string } | null;
+    const traderName = (p?.first_name && p?.last_name)
+      ? `${p.first_name} ${p.last_name}`
+      : p?.first_name || user.email?.split('@')[0] || 'Trader';
     const accountSize = (challenge as { account_size: number }).account_size;
     const certNumber = `TRV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`;
 

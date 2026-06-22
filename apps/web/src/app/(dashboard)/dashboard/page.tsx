@@ -36,6 +36,7 @@ function getPhaseLabel(status: string): string {
 export default function DashboardPage() {
   const { supabase } = useSupabase();
   const [user, setUser] = useState<User | null>(null);
+  const [displayName, setDisplayName] = useState('Trader');
   const [loading, setLoading] = useState(true);
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [trades, setTrades] = useState<TradeRow[]>([]);
@@ -48,6 +49,21 @@ export default function DashboardPage() {
       const u = authData.user ?? null;
       setUser(u);
       if (!u) { setLoading(false); return; }
+
+      // Fetch profile for display name
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', u.id)
+        .single();
+
+      const firstName = (profileData as { first_name?: string } | null)?.first_name;
+      const lastName = (profileData as { last_name?: string } | null)?.last_name;
+      if (firstName) {
+        setDisplayName(lastName ? `${firstName} ${lastName}` : firstName);
+      } else if (u.email) {
+        setDisplayName(u.email.split('@')[0]);
+      }
 
       // Fetch challenge
       const { data: challengeData, error: challengeErr } = await supabase
@@ -118,7 +134,7 @@ export default function DashboardPage() {
       <div className="space-y-8">
         <div>
           <h1 className="font-heading text-2xl font-bold">
-            Welcome, <GradientText as="span">{user.email?.split('@')[0] ?? 'Trader'}</GradientText>
+            Welcome, <GradientText as="span">{displayName}</GradientText>
           </h1>
         </div>
         <div className="flex h-[40vh] flex-col items-center justify-center rounded-xl border border-teal-500/10 bg-navy-700/60 p-8 text-center">
@@ -149,7 +165,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="font-heading text-2xl font-bold">
-          Welcome back, <GradientText as="span">{user.email?.split('@')[0] ?? 'Trader'}</GradientText>
+          Welcome back, <GradientText as="span">{displayName}</GradientText>
         </h1>
         <p className="text-sm text-text-secondary">Here&apos;s your trading performance overview</p>
       </div>
