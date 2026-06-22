@@ -165,7 +165,7 @@ export function SheetContent({ children, side = 'bottom', className }: {
             initial={variants.initial}
             animate={variants.animate}
             exit={variants.exit}
-            transition={{ type: 'tween', ease: [0.32, 0.72, 0, 1], duration: 0.35 }}
+            transition={{ type: 'tween', ease: 'easeOut', duration: 0.3 }}
           >
             <button
               onClick={() => setOpen(false)}
