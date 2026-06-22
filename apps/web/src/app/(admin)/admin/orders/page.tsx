@@ -49,7 +49,7 @@ export default function AdminOrdersPage() {
         <p className="text-sm text-text-muted">Review and manage payment orders</p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {statusFilters.map((f) => (
           <button
             key={f}

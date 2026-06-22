@@ -37,10 +37,18 @@ export function Sheet({ children, open: controlledOpen, onOpenChange }: {
   React.useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
     } else {
       document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
   }, [open]);
 
   React.useEffect(() => {

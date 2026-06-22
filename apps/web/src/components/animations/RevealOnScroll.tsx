@@ -27,7 +27,7 @@ export function RevealOnScroll({
     <motion.div
       initial={{ opacity: 0, ...directionVariants[direction] }}
       whileInView={{ opacity: 1, x: 0, y: 0 }}
-      viewport={{ once: true, margin: '-50px' }}
+      viewport={{ once: true, margin: '-30px' }}
       transition={{ duration: 0.6, delay, ease: 'easeOut' }}
       className={className}
     >

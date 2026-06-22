@@ -25,7 +25,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-navy-900">
-      <div className="fixed top-0 z-50 flex h-12 w-full items-center justify-between border-b border-amber-500/20 bg-navy-800/90 px-4 backdrop-blur-sm">
+      <div className="fixed top-0 z-40 flex h-12 w-full items-center justify-between border-b border-amber-500/20 bg-navy-800/90 px-4 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <Link href="/admin" className="flex items-center gap-2">
             <Logo className="h-8" />
@@ -76,7 +76,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </div>
       </div>
 
-      <aside className="fixed left-0 top-12 hidden h-[calc(100vh-3rem)] w-56 flex-col border-r border-amber-500/10 bg-navy-800/30 lg:flex">
+      <aside className="fixed left-0 top-12 z-30 hidden h-[calc(100vh-3rem)] w-56 flex-col border-r border-amber-500/10 bg-navy-800/30 lg:flex">
         <nav className="flex flex-1 flex-col gap-1 p-3">
           {adminLinks.map((item) => {
             const Icon = item.icon;
