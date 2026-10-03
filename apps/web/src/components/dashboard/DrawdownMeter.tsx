@@ -7,7 +7,13 @@ interface DrawdownMeterProps {
 }
 
 export function DrawdownMeter({ current, max, label = 'Drawdown' }: DrawdownMeterProps) {
-  const percentage = Math.min((current / max) * 100, 100);
+  // `max` comes straight from the DB. A 0/null max produced Infinity (ring
+  // pinned full-red) and a NaN produced strokeDashoffset="NaN" (ring vanished).
+  const safeCurrent = Number.isFinite(current) ? current : 0;
+  const percentage =
+    Number.isFinite(max) && max > 0
+      ? Math.min(Math.max((safeCurrent / max) * 100, 0), 100)
+      : 0;
   const isWarning = percentage > 70;
   const isDanger = percentage > 90;
 
@@ -20,7 +26,12 @@ export function DrawdownMeter({ current, max, label = 'Drawdown' }: DrawdownMete
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-full max-w-[140px]">
-        <svg viewBox="0 0 140 140" className="w-full" aria-label={`${label}: ${current.toFixed(1)}%`}>
+        <svg
+          viewBox="0 0 140 140"
+          className="w-full"
+          role="img"
+          aria-label={`${label}: ${safeCurrent.toFixed(1)}% of ${max}% limit`}
+        >
           <circle
             cx="70"
             cy="70"

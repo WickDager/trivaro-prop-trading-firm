@@ -1,7 +1,30 @@
-'use client';
-
+import type { Metadata } from 'next';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GradientText } from '@/components/shared/GradientText';
+
+const title = 'Refund Policy';
+const description =
+  "Read Trivaro's refund policy: when challenge fees are refundable, the Phase 1 guarantee, how technical issues are handled and how to request a refund.";
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: { canonical: '/refund' },
+  openGraph: {
+    type: 'website',
+    url: '/refund',
+    siteName: 'Trivaro',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+};
 
 export default function RefundPage() {
   return (

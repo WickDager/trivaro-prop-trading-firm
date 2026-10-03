@@ -14,7 +14,15 @@ import type { Challenge } from '@trivaro/shared-types';
 import type { Database } from '@/types';
 
 type TradeRow = Database['public']['Tables']['trades']['Row'];
-type EquitySnapshotRow = Database['public']['Tables']['equity_snapshots']['Row'];
+type EquityPointRow = Pick<Database['public']['Tables']['equity_snapshots']['Row'], 'snapshot_date' | 'equity'>;
+
+/** Bare `YYYY-MM-DD` parsed as UTC midnight renders as the previous day in
+ *  negative-offset timezones. Build the date in local time instead. */
+function formatSnapshotDate(value: string) {
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return value;
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 function getPhaseNumber(status: string): number {
   if (status === 'active' || status === 'phase1_complete') return 1;
@@ -43,12 +51,14 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ id: 
       }
 
       // Fetch challenge
+      // Explicit columns — `select('*')` also returned `account_password`
+      // (the MT5 login) into the browser, and `server`.
       const { data: challengeData, error: challengeErr } = await supabase
         .from('challenges')
-        .select('*')
+        .select('id,status,current_equity,starting_balance,highest_equity,lowest_equity,profit_target,max_drawdown,daily_drawdown,min_trading_days,total_trades,winning_trades,trading_days,account_number,created_at,is_trial,trial_ends_at,trial_passed_at')
         .eq('id', id)
         .eq('user_id', authData.user.id)
-        .single();
+        .maybeSingle();
 
       if (challengeErr || !challengeData) {
         setNotFound(true);
@@ -77,8 +87,8 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ id: 
 
       if (snapshots && snapshots.length > 0) {
         setEquityData(
-          snapshots.map((s: EquitySnapshotRow) => ({
-            date: new Date(s.snapshot_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          snapshots.map((s: EquityPointRow) => ({
+            date: formatSnapshotDate(s.snapshot_date),
             equity: s.equity,
           })),
         );

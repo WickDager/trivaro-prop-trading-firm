@@ -1,8 +1,17 @@
 export type ChallengeType = 'balance' | 'equity';
-export type AccountSize = 5000 | 10000 | 25000 | 50000 | 100000;
+/** Must match the orders.account_size CHECK constraint (migration 013) and the
+ *  CHALLENGE_PRICING list. 75000 is sold on the pricing page. */
+export type AccountSize = 5000 | 10000 | 25000 | 50000 | 75000 | 100000;
 export type CryptoCurrency = 'USDT' | 'USDC' | 'BTC';
+/** Only TRC20 has a live payment verifier — see VERIFIABLE_NETWORKS. */
 export type Network = 'TRC20' | 'ERC20' | 'BASE' | 'BTC';
-export type OrderStatus = 'pending' | 'paid' | 'expired' | 'failed' | 'refunded';
+export type OrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'expired'
+  | 'failed'
+  | 'refunded'
+  | 'cancelled'; // written by the admin orders page (migration 013)
 
 export interface Order {
   id: string;

@@ -1,3 +1,5 @@
+import { escapeHtml } from '../services/telegram.ts';
+
 interface SuccessMessageParams {
   accountNumber: string;
   accountPassword: string;
@@ -5,18 +7,21 @@ interface SuccessMessageParams {
   accountSize: number;
 }
 
+// HTML parse mode: credentials often contain Markdown metacharacters (`_`,
+// `*`, `.`), which under legacy Markdown made Telegram reject the message with
+// 400 — the user paid and then never received their login details.
 export function successMessage(params: SuccessMessageParams): string {
   return [
-    `✅ *Challenge Activated!*`,
+    `✅ <b>Challenge Activated!</b>`,
     ``,
     `🎉 Your $${(params.accountSize / 1000).toFixed(0)}K funded account is ready.`,
     ``,
-    `📊 *Account Details:*`,
-    `Account: \`${params.accountNumber}\``,
-    `Password: \`${params.accountPassword}\``,
-    `Server: \`${params.server}\``,
+    `📊 <b>Account Details:</b>`,
+    `Account: <code>${escapeHtml(params.accountNumber)}</code>`,
+    `Password: <code>${escapeHtml(params.accountPassword)}</code>`,
+    `Server: <code>${escapeHtml(params.server)}</code>`,
     ``,
-    `📋 *Challenge Rules:*`,
+    `📋 <b>Challenge Rules:</b>`,
     `• 8% Profit Target`,
     `• 5% Max Drawdown`,
     `• 3% Daily Drawdown`,

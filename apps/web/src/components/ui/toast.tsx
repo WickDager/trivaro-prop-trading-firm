@@ -5,12 +5,14 @@ import { Toaster as SonnerToaster } from 'sonner';
 export function Toaster() {
   return (
     <SonnerToaster
-      position="bottom-right"
+      // Top-centre: bottom-right toasts on mobile sit under the iOS home
+      // indicator and behind the dashboard's bottom sheet.
+      position="top-center"
+      theme="dark"
+      mobileOffset={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
       toastOptions={{
-        style: {
-          background: '#0D1F35',
-          color: '#FFFFFF',
-          border: '1px solid rgba(0, 217, 255, 0.1)',
+        classNames: {
+          toast: 'bg-navy-700 text-white border border-teal-muted',
         },
       }}
     />

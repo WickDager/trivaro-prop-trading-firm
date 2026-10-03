@@ -10,7 +10,14 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ challenge }: AccountCardProps) {
-  const isPositive = (challenge.current_equity ?? 0) >= challenge.profit_target;
+  // `profit_target` is a PERCENTAGE (8.00), not dollars. The old comparison
+  // `equity >= profit_target` was therefore always true (10000 >= 8), so the
+  // loss icon never rendered, and the label printed "Target: $8".
+  const startingBalance = Number(challenge.starting_balance) || 0;
+  const targetPercent = Number(challenge.profit_target) || 0;
+  const targetDollars = startingBalance * (targetPercent / 100);
+  const equity = Number(challenge.current_equity) || startingBalance;
+  const isPositive = targetDollars > 0 ? equity >= startingBalance + targetDollars : equity >= startingBalance;
 
   return (
     <Card>
@@ -27,7 +34,7 @@ export function AccountCard({ challenge }: AccountCardProps) {
           <div>
             <p className="text-sm text-text-muted">Current Equity</p>
             <p className="font-heading text-2xl font-bold">
-              ${challenge.current_equity?.toLocaleString() ?? '0.00'}
+              {equity.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
             </p>
           </div>
           <div className="flex gap-4">
@@ -38,7 +45,7 @@ export function AccountCard({ challenge }: AccountCardProps) {
                 <TrendingDown className="h-4 w-4 text-red-400" />
               )}
               <span className="text-sm text-text-secondary">
-                Target: ${challenge.profit_target.toLocaleString()}
+                Target: {targetDollars.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} ({targetPercent}%)
               </span>
             </div>
           </div>

@@ -1,8 +1,31 @@
-'use client';
-
+import type { Metadata } from 'next';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GradientText } from '@/components/shared/GradientText';
 import { Shield, TrendingUp, Users, Globe } from 'lucide-react';
+
+const title = 'About Trivaro';
+const description =
+  'Meet the traders and technologists behind Trivaro, read why we built a prop firm with realistic targets, and see the values that guide how we work.';
+
+export const metadata: Metadata = {
+  title: 'About',
+  description,
+  alternates: { canonical: '/about' },
+  openGraph: {
+    type: 'website',
+    url: '/about',
+    siteName: 'Trivaro',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+};
 
 const values = [
   {

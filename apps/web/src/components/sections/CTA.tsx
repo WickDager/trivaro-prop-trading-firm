@@ -1,8 +1,9 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { buttonVariants } from '@/components/ui/button';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
-import { GlowButton } from '@/components/shared/GlowButton';
 import { GradientText } from '@/components/shared/GradientText';
 
 export function CTA() {
@@ -24,13 +25,14 @@ export function CTA() {
                 No risk, no monthly fees, just results.
               </p>
               <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <Link href="/challenges">
-                  <GlowButton size="xl">Start Your Journey</GlowButton>
+                <Link href="/challenges" className={cn(buttonVariants({ variant: 'glow', size: 'xl' }))}>
+                  Start Your Journey
                 </Link>
-                <Link href="/how-it-works">
-                  <button className="rounded-xl border border-white/40 bg-white/5 px-8 py-3.5 text-sm font-medium text-white transition-all hover:bg-white/10 hover:border-white/60">
-                    Learn More
-                  </button>
+                <Link
+                  href="/how-it-works"
+                  className={cn(buttonVariants({ variant: 'outline', size: 'xl' }))}
+                >
+                  Learn More
                 </Link>
               </div>
             </div>

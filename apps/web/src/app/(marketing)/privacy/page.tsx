@@ -1,7 +1,30 @@
-'use client';
-
+import type { Metadata } from 'next';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GradientText } from '@/components/shared/GradientText';
+
+const title = 'Privacy Policy';
+const description =
+  'How Trivaro collects, uses and protects your personal data, the third-party services we rely on, and how to access, correct or delete your information.';
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: { canonical: '/privacy' },
+  openGraph: {
+    type: 'website',
+    url: '/privacy',
+    siteName: 'Trivaro',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+};
 
 export default function PrivacyPage() {
   return (

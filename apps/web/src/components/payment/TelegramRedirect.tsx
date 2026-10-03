@@ -1,6 +1,7 @@
 'use client';
 
-import { GlowButton } from '@/components/shared/GlowButton';
+import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
 import { TELEGRAM_BOT_USERNAME } from '@/lib/constants';
 
 interface TelegramRedirectProps {
@@ -13,10 +14,13 @@ export function TelegramRedirect({ paymentId }: TelegramRedirectProps) {
   return (
     <div className="text-center">
       <p className="mb-2 text-sm text-text-secondary">Continue to Telegram to complete payment</p>
-      <a href={telegramUrl} target="_blank" rel="noopener noreferrer">
-        <GlowButton size="lg" className="w-full">
-          Open Telegram Bot
-        </GlowButton>
+      <a
+        href={telegramUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(buttonVariants({ variant: 'glow', size: 'lg' }), 'w-full')}
+      >
+        Open Telegram Bot
       </a>
     </div>
   );

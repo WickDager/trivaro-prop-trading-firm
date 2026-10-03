@@ -1,7 +1,6 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 
 interface PaymentStatusProps {
   status: 'pending' | 'paid' | 'expired' | 'failed' | 'refunded';

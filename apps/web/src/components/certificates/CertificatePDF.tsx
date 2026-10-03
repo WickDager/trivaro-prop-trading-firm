@@ -16,7 +16,6 @@ Font.register({
 });
 
 const teal = '#00D9FF';
-const green = '#00FF88';
 const navy = '#0A1628';
 const gold = '#D4AF37';
 const gray = '#718096';

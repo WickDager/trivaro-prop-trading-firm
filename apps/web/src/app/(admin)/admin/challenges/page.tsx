@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
-import { FileText } from 'lucide-react';
 
 interface ChallengeRow {
   id: string;
   account_number: string | null;
-  account_size: number;
+  /** There is no `challenges.account_size` column — the size comes from
+   *  `starting_balance`. Reading `account_size` rendered "NaN K". */
+  starting_balance: number;
   status: string;
   current_equity: number | null;
   total_trades: number;
   created_at: string;
-  user_id: string;
+  user_id: string | null;
 }
 
 export default function AdminChallengesPage() {
@@ -20,12 +21,25 @@ export default function AdminChallengesPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     const supabase = createBrowserClient();
-    supabase.from('challenges').select('*').order('created_at', { ascending: false }).then(({ data }) => {
-      setChallenges(data as ChallengeRow[] ?? []);
-      setLoading(false);
-    });
+    // Explicit columns: `select('*')` also pulled `account_password` (the MT5
+    // credentials) into the admin's browser and the RSC payload.
+    supabase
+      .from('challenges')
+      .select('id,account_number,starting_balance,status,current_equity,total_trades,created_at,user_id')
+      .order('created_at', { ascending: false })
+      .limit(200)
+      .then(({ data, error: queryError }) => {
+        if (queryError) {
+          setError(queryError.message);
+        } else {
+          setChallenges((data as ChallengeRow[] | null) ?? []);
+        }
+        setLoading(false);
+      });
   }, []);
 
   const filtered = filter === 'all' ? challenges : challenges.filter((c) => c.status === filter);
@@ -38,12 +52,20 @@ export default function AdminChallengesPage() {
         <p className="text-sm text-text-muted">Monitor all active and completed challenges</p>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          Could not load challenges: {error}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
         {statusFilters.map((f) => (
           <button
             key={f}
+            type="button"
+            aria-pressed={filter === f}
             onClick={() => setFilter(f)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`min-h-10 rounded-lg px-3 py-2 text-xs font-medium transition-colors active:scale-[0.97] ${
               filter === f
                 ? 'bg-amber-500/10 text-amber-400'
                 : 'bg-navy-800 text-text-muted hover:text-white'
@@ -75,8 +97,12 @@ export default function AdminChallengesPage() {
               filtered.map((ch) => (
                 <tr key={ch.id} className="border-b border-amber-500/5 hover:bg-navy-700/30">
                   <td className="px-4 py-3 font-mono text-xs">{ch.account_number || '—'}</td>
-                  <td className="px-4 py-3">${(ch.account_size / 1000).toFixed(0)}K</td>
-                  <td className="px-4 py-3">${ch.current_equity?.toLocaleString() || '—'}</td>
+                  <td className="px-4 py-3">
+                    {ch.starting_balance ? `$${(ch.starting_balance / 1000).toFixed(0)}K` : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    {ch.current_equity != null ? `$${ch.current_equity.toLocaleString('en-US')}` : '—'}
+                  </td>
                   <td className="px-4 py-3">{ch.total_trades}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded px-2 py-0.5 text-xs font-medium ${

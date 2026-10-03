@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AccountCard } from '@/components/dashboard/AccountCard';
 import { EquityChart } from '@/components/dashboard/EquityChart';
 import { TradeHistory } from '@/components/dashboard/TradeHistory';
 import { DrawdownMeter } from '@/components/dashboard/DrawdownMeter';
 import { PhaseProgress } from '@/components/dashboard/PhaseProgress';
+import { TrialBanner } from '@/components/dashboard/TrialBanner';
 import { GradientText } from '@/components/shared/GradientText';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Challenge } from '@trivaro/shared-types';
@@ -16,20 +16,35 @@ import type { User } from '@supabase/supabase-js';
 import type { Database } from '@/types';
 
 type TradeRow = Database['public']['Tables']['trades']['Row'];
-type EquitySnapshotRow = Database['public']['Tables']['equity_snapshots']['Row'];
+type EquityPointRow = Pick<Database['public']['Tables']['equity_snapshots']['Row'], 'snapshot_date' | 'equity'>;
 
+/** `snapshot_date` is a bare `YYYY-MM-DD`. `new Date('2026-01-15')` parses as
+ *  UTC midnight, which renders as the PREVIOUS day in every negative-offset
+ *  timezone — shifting the whole equity chart by a day. */
+function formatSnapshotDate(value: string) {
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return value;
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * `status` names the state the trader is IN, not the phase they finished:
+ * 'phase1_complete' means phase 1 passed and phase 2 is now running. The old
+ * version returned 1 for that state while the label said "Phase 2", so the
+ * stepper and the label disagreed for the same row.
+ */
 function getPhaseNumber(status: string): number {
-  if (status === 'active' || status === 'phase1_complete') return 1;
+  if (status === 'phase1_complete') return 2;
   if (status === 'phase2_complete') return 2;
   if (status === 'funded') return 3;
-  return 1;
+  return 1; // 'active', 'trial', and anything unrecognised
 }
 
 function getPhaseLabel(status: string): string {
-  if (status === 'active') return 'Phase 1';
-  if (status === 'phase1_complete') return 'Phase 2';
-  if (status === 'phase2_complete') return 'Phase 2';
+  if (status === 'trial') return 'Trial';
   if (status === 'funded') return 'Funded';
+  if (status === 'phase2_complete') return 'Phase 2';
+  if (status === 'phase1_complete') return 'Phase 2';
   return 'Phase 1';
 }
 
@@ -68,9 +83,9 @@ export default function DashboardPage() {
       // Fetch challenge
       const { data: challengeData, error: challengeErr } = await supabase
         .from('challenges')
-        .select('id,status,current_equity,starting_balance,highest_equity,profit_target,max_drawdown,total_trades,winning_trades,trading_days,account_number,created_at')
+        .select('id,status,current_equity,starting_balance,highest_equity,profit_target,max_drawdown,total_trades,winning_trades,trading_days,account_number,created_at,is_trial,trial_ends_at,trial_passed_at')
         .eq('user_id', u.id)
-        .in('status', ['active', 'phase1_complete', 'phase2_complete', 'funded'])
+        .in('status', ['trial', 'active', 'phase1_complete', 'phase2_complete', 'funded'])
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -94,8 +109,8 @@ export default function DashboardPage() {
 
       if (snapshots && snapshots.length > 0) {
         setEquityData(
-          snapshots.map((s: EquitySnapshotRow) => ({
-            date: new Date(s.snapshot_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          snapshots.map((s: EquityPointRow) => ({
+            date: formatSnapshotDate(s.snapshot_date),
             equity: s.equity,
           })),
         );
@@ -169,6 +184,13 @@ export default function DashboardPage() {
         </h1>
         <p className="text-sm text-text-secondary">Here&apos;s your trading performance overview</p>
       </div>
+
+      {challenge.is_trial && (
+        <TrialBanner
+          trialEndsAt={challenge.trial_ends_at}
+          trialPassedAt={challenge.trial_passed_at}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

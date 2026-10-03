@@ -13,18 +13,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login?redirect=/dashboard');
 
+  // Resolved on the server so the admin link is never rendered to a
+  // non-admin, even for a moment, and no extra client round-trip is needed.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const isAdmin = (profile as { role: string } | null)?.role === 'admin';
+
   return (
     <ErrorBoundary>
-      <div className="min-h-screen">
+      <div className="min-h-dvh">
         <GridPattern />
-        <Sidebar />
-        <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-teal-500/10 bg-navy-900/80 px-4 backdrop-blur-xl lg:hidden">
+        <Sidebar isAdmin={isAdmin} />
+        <div className="pt-safe fixed left-0 right-0 top-0 z-30 flex min-h-14 items-center justify-between border-b border-teal-500/10 bg-navy-900/95 px-4 lg:hidden">
           <span className="text-sm font-semibold text-text-secondary">Trivaro</span>
-          <MobileNav variant="dashboard" />
+          <MobileNav variant="dashboard" isAdmin={isAdmin} />
         </div>
-        <main className="pt-14 lg:pl-64 lg:pt-0">
+        <main id="main" className="pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pl-64 lg:pt-0">
           <EmailVerificationBanner />
-          <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-5xl px-4 py-8 pb-safe sm:px-6 lg:px-8">
             {children}
           </div>
         </main>

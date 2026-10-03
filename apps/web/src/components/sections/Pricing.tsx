@@ -1,8 +1,9 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { buttonVariants } from '@/components/ui/button';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
-import { GlowButton } from '@/components/shared/GlowButton';
 import { GradientText } from '@/components/shared/GradientText';
 import { CHALLENGE_PRICING } from '@/lib/constants';
 import { Check } from 'lucide-react';
@@ -64,10 +65,11 @@ export function Pricing() {
                 </div>
 
                 <div className="mt-auto">
-                  <Link href={`/challenges?size=${challenge.accountSize}`}>
-                    <GlowButton className="w-full" size="sm">
-                      Get Started
-                    </GlowButton>
+                  <Link
+                    href={`/challenges?size=${challenge.accountSize}`}
+                    className={cn(buttonVariants({ variant: 'glow', size: 'sm' }), 'w-full')}
+                  >
+                    Get Started
                   </Link>
                 </div>
               </motion.div>

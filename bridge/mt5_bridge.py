@@ -9,19 +9,30 @@ evaluation.
 Works regardless of how the client trades — desktop, mobile, or web terminal.
 
 Requirements:
-  - Windows VPS with MetaTrader 5 terminal installed (provides DLLs)
-  - Python 3.9+ with MetaTrader5 and requests packages
+  - Windows VPS with MetaTrader 5 terminal installed (provides DLLs) and a
+    logged-on interactive session — the terminal cannot run in session 0
+  - Python 3.10+ with the exact packages pinned in requirements.txt
   - Investor (read-only) password for each MT5 account
 
 Usage:
   python mt5_bridge.py [--config config.json] [--once]
+
+Config keys:
+  poll_interval_seconds    Poll cycle length (default 60, clamped 10..300)
+  server_utc_offset_hours  Broker server clock offset from UTC (default 0).
+                           MT5 returns the server's wall clock as the epoch, so
+                           set this (e.g. 3 for a UTC+3 broker) when the server
+                           is not on UTC; otherwise trade times and the history
+                           query window are shifted by that many hours.
 """
 
 import json
 import logging
+import logging.handlers
 import os
 import signal
 import sys
+import threading
 import time
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -50,11 +61,17 @@ POLL_MIN_SECONDS = 10
 POLL_MAX_SECONDS = 300
 HTTP_TIMEOUT = 30
 MAX_RETRIES = 3
+# How many consecutive MT5 failures before the runtime is torn down and
+# re-initialized (a terminal restart or dropped session otherwise never recovers).
+MAX_MT5_FAILURES_BEFORE_RECONNECT = 5
 
 DEAL_ENTRY_IN = 0
 DEAL_ENTRY_OUT = 1
 DEAL_TYPE_BUY = 0
 DEAL_TYPE_SELL = 1
+
+# Consecutive MT5 failures, used to trigger a reconnect from note_mt5_result().
+_consecutive_mt5_failures = 0
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -75,7 +92,11 @@ def setup_logging(log_file: Optional[str]) -> None:
     logger.addHandler(console)
 
     if log_file:
-        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        # The bridge runs 24/7 at DEBUG; a plain FileHandler would grow without
+        # bound and eventually fill the VPS disk.
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_file, maxBytes=10_000_000, backupCount=5, encoding="utf-8"
+        )
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(fmt)
         logger.addHandler(file_handler)
@@ -99,6 +120,11 @@ def load_config(path: str) -> dict:
     interval = config.get("poll_interval_seconds", 60)
     config["poll_interval_seconds"] = max(POLL_MIN_SECONDS, min(interval, POLL_MAX_SECONDS))
 
+    # Broker server clock offset from UTC. MT5 returns the server's wall clock as
+    # the epoch, so a non-zero offset would otherwise shift every trade timestamp
+    # and the history query window by that many hours.
+    config["server_utc_offset_hours"] = float(config.get("server_utc_offset_hours", 0))
+
     return config
 
 
@@ -118,6 +144,10 @@ def load_state(path: str) -> Dict[str, dict]:
 
 
 def save_state(path: str, state: Dict[str, dict]) -> None:
+    # tmp + os.replace is atomic, which keeps the state file readable if the
+    # process dies mid-write. There is no lock file, so two bridge processes
+    # pointed at the same state path will fight over these writes — run only
+    # one instance per state file.
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
@@ -167,33 +197,54 @@ class SupabaseRest:
             params[key] = f"eq.{value}"
         try:
             resp = self.session.get(f"{self.base}/{table}", params=params, timeout=HTTP_TIMEOUT)
-            if resp.status_code == 200:
-                rows = resp.json()
-                return rows[0] if rows else None
-            return None
         except requests.RequestException as exc:
-            logger.debug("REST GET %s failed: %s", table, exc)
+            logger.warning("REST GET %s failed: %s", table, exc)
             return None
+        if resp.status_code != 200:
+            logger.warning("REST GET %s -> HTTP %d: %s", table, resp.status_code, resp.text[:300])
+            return None
+        try:
+            rows = resp.json()
+        except ValueError:
+            # A captive portal / proxy answers 200 with HTML; JSONDecodeError is
+            # not a RequestException, so it used to escape and abort the account
+            # cycle (skipping trade forwarding entirely).
+            logger.warning("REST GET %s returned a non-JSON body: %s", table, resp.text[:300])
+            return None
+        return rows[0] if rows else None
 
     def upsert(self, table: str, row: dict, on_conflict: str = "") -> bool:
         """POST /rest/v1/{table} with Prefer: resolution=merge-duplicates."""
         headers = {}
+        params = None
         if on_conflict:
             headers["Prefer"] = "resolution=merge-duplicates"
+            # PostgREST resolves merge-duplicates against the PRIMARY KEY unless
+            # the conflict target is named. The payload has no `id`, so omitting
+            # this made every poll a plain INSERT — ~1440 duplicate rows per
+            # account per day on a 60s interval.
+            params = {"on_conflict": on_conflict}
         try:
             resp = self.session.post(
                 f"{self.base}/{table}",
                 json=row,
                 headers=headers,
+                params=params,
                 timeout=HTTP_TIMEOUT,
             )
-            return resp.status_code in (200, 201, 204)
         except requests.RequestException as exc:
-            logger.debug("REST POST %s failed: %s", table, exc)
+            logger.warning("REST POST %s failed: %s", table, exc)
             return False
+        if resp.status_code in (200, 201, 204):
+            return True
+        logger.warning("REST POST %s -> HTTP %d: %s", table, resp.status_code, resp.text[:300])
+        return False
 
     def count(self, table: str, **filters) -> int:
-        """GET /rest/v1/{table}?select=count with filters — returns exact count."""
+        """GET /rest/v1/{table}?select=count with filters — returns exact count.
+
+        Callers pass bare values; the "eq." prefix is added here.
+        """
         headers = {"Prefer": "count=exact"}
         params = {}
         for key, value in filters.items():
@@ -205,15 +256,25 @@ class SupabaseRest:
                 params=params,
                 timeout=HTTP_TIMEOUT,
             )
-            if resp.status_code in (200, 206):
-                content_range = resp.headers.get("content-range", "")
-                # "0-0/15" → count is after the /
-                parts = content_range.split("/")
-                if len(parts) == 2:
-                    return int(parts[1])
+        except requests.RequestException as exc:
+            logger.warning("REST count %s failed: %s", table, exc)
             return 0
-        except requests.RequestException:
+        if resp.status_code not in (200, 206):
+            # A failed count used to return 0 with no log, making it
+            # indistinguishable from a real zero.
+            logger.warning("REST count %s -> HTTP %d: %s", table, resp.status_code, resp.text[:300])
             return 0
+        content_range = resp.headers.get("content-range", "")
+        # "0-0/15" → count is after the /
+        parts = content_range.split("/")
+        if len(parts) == 2:
+            try:
+                return int(parts[1])
+            except ValueError:
+                logger.warning("REST count %s: unparseable Content-Range %r", table, content_range)
+                return 0
+        logger.warning("REST count %s: missing Content-Range header", table)
+        return 0
 
 
 def get_supabase(config: dict) -> Optional[SupabaseRest]:
@@ -221,7 +282,10 @@ def get_supabase(config: dict) -> Optional[SupabaseRest]:
     url = config.get("supabase_url", "").strip()
     key = config.get("supabase_service_role_key", "").strip()
     if not url or not key:
-        logger.warning("supabase_url or supabase_service_role_key not set — equity snapshots disabled")
+        logger.warning(
+            "supabase_url or supabase_service_role_key not set — equity snapshots "
+            "disabled (trade forwarding still runs)"
+        )
         return None
     return SupabaseRest(url, key)
 
@@ -229,6 +293,41 @@ def get_supabase(config: dict) -> Optional[SupabaseRest]:
 # ---------------------------------------------------------------------------
 # Account-level MT5 operations
 # ---------------------------------------------------------------------------
+
+def mt5_terminal_connected() -> bool:
+    """True while the terminal process is alive and its session is up."""
+    info = mt5.terminal_info()
+    return bool(info is not None and info.connected)
+
+
+def note_mt5_result(ok: bool) -> None:
+    """Track consecutive MT5 failures and re-initialize after too many.
+
+    mt5.initialize() ran exactly once at startup, so a terminal restart or a
+    dropped session left every later call failing forever with no recovery path.
+    """
+    global _consecutive_mt5_failures
+
+    if ok:
+        _consecutive_mt5_failures = 0
+        return
+
+    _consecutive_mt5_failures += 1
+    if _consecutive_mt5_failures < MAX_MT5_FAILURES_BEFORE_RECONNECT:
+        return
+
+    logger.warning("MT5 failed %d times in a row — shutting down and re-initializing", _consecutive_mt5_failures)
+    _consecutive_mt5_failures = 0
+    try:
+        mt5.shutdown()
+        time.sleep(2)  # let the terminal finish tearing down before re-initializing
+        if mt5.initialize():
+            logger.info("MT5 re-initialized (version %s)", mt5.version())
+        else:
+            logger.error("mt5.initialize() failed during reconnect: code=%s", mt5.last_error())
+    except Exception:
+        logger.error("MT5 reconnect raised:\n%s", traceback.format_exc())
+
 
 def connect_account(account_cfg: dict) -> bool:
     """Log into a single MT5 account on its broker server. Returns True on success."""
@@ -263,17 +362,35 @@ def get_account_snapshot() -> Optional[dict]:
     }
 
 
-def get_closed_positions(since: datetime) -> List[dict]:
+def _naive_utc(dt: datetime) -> datetime:
+    """Normalize to a naive datetime in UTC (what MT5's API expects)."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def get_closed_positions(since: datetime, server_utc_offset_hours: float = 0.0) -> List[dict]:
     """
     Fetch positions closed since *since* for the currently-logged-in account.
     Pairs entry + exit deals to produce full trade records.
+
+    *since* is a real-UTC instant. MT5 interprets naive datetimes as UTC, so
+    both bounds are built as naive UTC of the broker server's clock. The old
+    code used datetime.now() (naive LOCAL) for window_end, which on a VPS behind
+    UTC excluded trades that had just closed — notifications fired a cycle late.
     """
-    window_start = since
-    window_end = datetime.now()
+    offset = timedelta(hours=server_utc_offset_hours)
+    window_start = _naive_utc(since) + offset
+    window_end = _naive_utc(datetime.now(timezone.utc)) + offset
 
     deals_since = mt5.history_deals_get(window_start, window_end)
     if deals_since is None or len(deals_since) == 0:
         return []
+
+    def deal_time(ts: int) -> str:
+        # MT5 hands back the broker server's wall clock as the epoch; subtract
+        # the server offset so the timestamp is the real UTC instant.
+        return datetime.fromtimestamp(ts - server_utc_offset_hours * 3600, tz=timezone.utc).isoformat()
 
     closed: List[dict] = []
     seen: Set[int] = set()
@@ -311,8 +428,8 @@ def get_closed_positions(since: datetime) -> List[dict]:
             "open_price": float(entry_deal.price),
             "close_price": float(exit_deal.price),
             "profit": float(exit_deal.profit),
-            "open_time": datetime.fromtimestamp(entry_deal.time, tz=timezone.utc).isoformat(),
-            "close_time": datetime.fromtimestamp(exit_deal.time, tz=timezone.utc).isoformat(),
+            "open_time": deal_time(entry_deal.time),
+            "close_time": deal_time(exit_deal.time),
         })
 
     return closed
@@ -340,9 +457,15 @@ def write_equity_snapshot(
     }, on_conflict="challenge_id,snapshot_date")
 
 
-def lookup_challenge_id(rest: SupabaseRest, account_number: str) -> Optional[str]:
+def lookup_challenge_id(rest: Optional[SupabaseRest], account_number: str) -> Optional[str]:
     """Resolve challenge UUID from TV-XXXXXX account number."""
-    row = rest.get("challenges", query="id", **{"account_number": account_number})
+    # rest is None when Supabase is not configured. Dereferencing it used to
+    # raise AttributeError, which escaped process_account() before
+    # forward_trades() — so no trades were forwarded for ANY account while the
+    # log claimed only equity snapshots were affected.
+    if rest is None:
+        return None
+    row = rest.get("challenges", query="id", account_number=account_number)
     return row["id"] if row else None
 
 
@@ -392,7 +515,13 @@ def forward_trades(
         return False, 0, 0
 
     if resp.status_code in (200, 201):
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError:
+            # A proxy/captive portal can answer 2xx with HTML; a JSONDecodeError
+            # is not a RequestException and used to abort the whole cycle.
+            logger.error("%s: non-JSON response body: %s", account_number, resp.text[:300])
+            return False, 0, 0
         return True, data.get("inserted", 0), data.get("skipped", 0)
     else:
         logger.error("%s: HTTP %d — %s", account_number, resp.status_code, resp.text[:400])
@@ -407,10 +536,11 @@ def process_account(
     account_cfg: dict,
     state: Dict[str, dict],
     session: requests.Session,
-    rest: SupabaseRest,
+    rest: Optional[SupabaseRest],
     endpoint_url: str,
     api_secret: str,
     lookback_minutes: int,
+    server_utc_offset_hours: float = 0.0,
 ) -> dict:
     """
     Process one account: connect → snapshot equity → fetch new trades → forward.
@@ -424,32 +554,62 @@ def process_account(
     last_ticket = entry.get("last_ticket", 0)
 
     # -- Connect ----------------------------------------------------------------
+    # A dead terminal / dropped session is what triggers the reconnect inside
+    # note_mt5_result(); login is still attempted so behaviour is unchanged when
+    # terminal_info() is merely stale.
+    if not mt5_terminal_connected():
+        logger.warning("%s: MT5 terminal reports no session, attempting login anyway", account_number)
+        note_mt5_result(False)
+
     if not connect_account(account_cfg):
+        note_mt5_result(False)
         return entry
 
+    note_mt5_result(True)
     logger.debug("%s: connected (investor=%s)", account_number, is_investor)
 
     # -- Equity snapshot --------------------------------------------------------
-    snap = get_account_snapshot()
-    if snap:
-        logger.debug(
-            "%s: equity=%.2f balance=%.2f margin=%.2f",
-            account_number,
-            snap["equity"],
-            snap["balance"],
-            snap["margin"],
-        )
-        challenge_id = lookup_challenge_id(rest, account_number)
-        if challenge_id:
-            # Count existing trades for this challenge to track trade_count
-            trade_count = rest.count("trades", **{"challenge_id": f"eq.{challenge_id}"}) if rest else 0
-            write_equity_snapshot(
-                rest, challenge_id, snap["equity"], snap["balance"], trade_count
+    # This whole block is best-effort: an exception here used to escape
+    # process_account() and skip trade forwarding for the account entirely.
+    try:
+        snap = get_account_snapshot()
+        if snap is None:
+            # account_info() failing means the terminal/session is unhealthy.
+            note_mt5_result(False)
+        else:
+            logger.debug(
+                "%s: equity=%.2f balance=%.2f margin=%.2f",
+                account_number,
+                snap["equity"],
+                snap["balance"],
+                snap["margin"],
             )
+            if rest is None:
+                logger.debug("%s: Supabase not configured, snapshot skipped", account_number)
+            else:
+                challenge_id = lookup_challenge_id(rest, account_number)
+                if challenge_id:
+                    # count() adds the "eq." prefix itself; passing it here too
+                    # produced "challenge_id=eq.eq.<uuid>" → HTTP 400 → count 0.
+                    trade_count = rest.count("trades", challenge_id=challenge_id)
+                    if not write_equity_snapshot(
+                        rest, challenge_id, snap["equity"], snap["balance"], trade_count
+                    ):
+                        logger.warning("%s: equity snapshot write failed", account_number)
+                else:
+                    logger.warning(
+                        "%s: no challenge row found, snapshot skipped", account_number
+                    )
+    except Exception:
+        logger.error(
+            "%s: snapshot step failed (continuing with trades):\n%s",
+            account_number,
+            traceback.format_exc(),
+        )
 
     # -- Closed positions -------------------------------------------------------
     lookback = datetime.now(timezone.utc) - timedelta(minutes=lookback_minutes)
-    trades = get_closed_positions(lookback)
+    trades = get_closed_positions(lookback, server_utc_offset_hours)
 
     # Filter to trades newer than last_ticket
     new_trades = [t for t in trades if t["ticket"] > last_ticket]
@@ -470,9 +630,18 @@ def process_account(
         session, endpoint_url, api_secret, account_number, new_trades
     )
 
-    if ok and inserted > 0:
-        # Advance the cursor to the highest ticket we just sent
+    if ok:
+        # Advance whenever the server accepted the batch — tickets it did not
+        # insert were deduplicated server-side, so re-sending them every cycle
+        # could never help (it used to POST the same batch forever).
         entry["last_ticket"] = new_trades[-1]["ticket"]
+        logger.debug(
+            "%s: forwarded %d trade(s) (inserted=%d skipped=%d)",
+            account_number,
+            len(new_trades),
+            inserted,
+            skipped,
+        )
 
     entry["last_poll"] = datetime.now(timezone.utc).isoformat()
     return entry
@@ -522,12 +691,16 @@ def main() -> None:
 
     # -- Signal handling --------------------------------------------------------
     running = True
+    # Set by SIGINT/SIGTERM so the poll sleep returns immediately; a plain
+    # time.sleep() delayed shutdown by up to poll_interval_seconds.
+    shutdown = threading.Event()
 
     def handle_signal(signum, frame):
         nonlocal running
         sig_name = signal.Signals(signum).name
         logger.info("Received %s, shutting down...", sig_name)
         running = False
+        shutdown.set()
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
@@ -538,15 +711,17 @@ def main() -> None:
     endpoint_url = config["endpoint_url"]
     api_secret = config["api_secret"]
     interval = config["poll_interval_seconds"]
+    server_utc_offset_hours = config["server_utc_offset_hours"]
 
     if rest is None:
         logger.warning("Supabase REST client unavailable — equity snapshots will be skipped")
 
     logger.info(
-        "Monitoring %d account(s) every %ds (lookback=%dm)",
+        "Monitoring %d account(s) every %ds (lookback=%dm, server_utc_offset=%+.1fh)",
         len(config["accounts"]),
         interval,
         args.lookback,
+        server_utc_offset_hours,
     )
 
     while running:
@@ -558,6 +733,7 @@ def main() -> None:
                 state[acct_num] = process_account(
                     account_cfg, state, session, rest,
                     endpoint_url, api_secret, args.lookback,
+                    server_utc_offset_hours,
                 )
             except Exception:
                 logger.error(
@@ -576,7 +752,7 @@ def main() -> None:
         elapsed = (datetime.now(timezone.utc) - cycle_start).total_seconds()
         sleep_for = max(0, interval - elapsed)
         logger.debug("Cycle took %.1fs, sleeping %.1fs", elapsed, sleep_for)
-        time.sleep(sleep_for)
+        shutdown.wait(sleep_for)
 
     # Cleanup
     session.close()

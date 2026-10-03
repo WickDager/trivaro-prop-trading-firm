@@ -10,7 +10,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <AuroraBackground />
       <ParticleField />
       <Navbar />
-      <main>{children}</main>
+      <main id="main">{children}</main>
       <Footer />
     </ErrorBoundary>
   );

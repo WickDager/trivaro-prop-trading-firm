@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { GradientText } from '@/components/shared/GradientText';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PaymentStatus } from '@/components/payment/PaymentStatus';

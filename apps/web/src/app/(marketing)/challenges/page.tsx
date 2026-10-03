@@ -1,152 +1,46 @@
-'use client';
+import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
+import { CheckoutClient } from './CheckoutClient';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
-import { GlowButton } from '@/components/shared/GlowButton';
-import { GradientText } from '@/components/shared/GradientText';
-import { CryptoSelector } from '@/components/payment/CryptoSelector';
-import { TelegramRedirect } from '@/components/payment/TelegramRedirect';
-import { CHALLENGE_PRICING } from '@/lib/constants';
-import { useSupabase } from '@/hooks/useSupabase';
-import { Loader2, Check, Info, LogIn, Shield, Lock } from 'lucide-react';
+/**
+ * Server component so this route can export metadata — a `'use client'` page
+ * cannot, which is why every marketing page previously shared the root title.
+ * The interactive checkout lives in CheckoutClient.
+ */
+export const metadata: Metadata = {
+  title: 'Challenges',
+  description:
+    'Compare Trivaro challenge accounts, start a free 14-day practice trial, or buy a funded evaluation with USDT. Profit target, drawdown limits and fees for every account size.',
+  alternates: { canonical: '/challenges' },
+  openGraph: {
+    type: 'website',
+    url: '/challenges',
+    siteName: 'Trivaro',
+    title: 'Challenges | Trivaro',
+    description:
+      'Start a free 14-day practice trial or buy a funded evaluation. Profit target, drawdown limits and fees for every account size.',
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Challenges | Trivaro',
+    description:
+      'Start a free 14-day practice trial or buy a funded evaluation. Profit target, drawdown limits and fees for every account size.',
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+};
 
 export default function ChallengesPage() {
-  const router = useRouter();
-  const { supabase } = useSupabase();
-  const [selectedSize, setSelectedSize] = useState<number | null>(null);
-  const [selectedCrypto, setSelectedCrypto] = useState<string | null>(null);
-  const [paymentId, setPaymentId] = useState<string | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(false);
-
-  const selectedPricing = CHALLENGE_PRICING.find((p) => p.accountSize === selectedSize);
-
-  async function handleStartPayment() {
-    setCheckingAuth(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      const size = selectedSize ?? '';
-      router.push(`/login?redirect=/challenges?size=${size}`);
-      return;
-    }
-    setCheckingAuth(false);
-    const id = `TV-2026-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
-    setPaymentId(id);
-  }
-
   return (
-    <div className="min-h-screen pt-24">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <RevealOnScroll>
-          <div className="text-center">
-            <h1 className="font-heading text-4xl font-bold sm:text-5xl">
-              Choose Your <GradientText as="span">Challenge</GradientText>
-            </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-text-secondary">
-              Select your account size and start your journey to becoming a funded trader
-            </p>
-          </div>
-        </RevealOnScroll>
-
-        {!paymentId && (
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {CHALLENGE_PRICING.map((challenge) => (
-              <motion.div
-                key={challenge.accountSize}
-                whileHover={{ y: -5 }}
-                onClick={() => setSelectedSize(challenge.accountSize)}
-                className={`cursor-pointer rounded-xl border p-6 transition-all ${
-                  selectedSize === challenge.accountSize
-                    ? 'border-teal-400 bg-teal-500/10 shadow-lg shadow-teal-glow'
-                    : 'border-teal-500/10 bg-navy-700/60 hover:border-teal-500/30'
-                }`}
-              >
-                <p className="text-sm text-text-muted">Account</p>
-                <p className="font-heading text-2xl font-bold">
-                  ${(challenge.accountSize / 1000).toFixed(0)}K
-                </p>
-                <div className="my-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-text-secondary">
-                    <Check className="h-4 w-4 text-green-400" />
-                    {challenge.profitTarget}% Target
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-text-secondary">
-                    <Check className="h-4 w-4 text-green-400" />
-                    {challenge.maxDrawdown}% Drawdown
-                  </div>
-                </div>
-                <p className="text-2xl font-bold text-green-400">${challenge.equityChallenge}</p>
-                <p className="text-xs text-text-muted">one-time fee</p>
-              </motion.div>
-            ))}
-          </div>
-        )}
-
-        {selectedSize && !paymentId && (
-          <RevealOnScroll>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mx-auto mt-16 max-w-lg"
-            >
-              <div className="rounded-xl border border-teal-500/10 bg-navy-700/60 p-8">
-                <h2 className="mb-6 font-heading text-xl font-semibold">Payment Method</h2>
-                <div className="mb-6">
-                  <p className="mb-2 text-sm text-text-secondary">Select cryptocurrency</p>
-                  <CryptoSelector
-                    selected={selectedCrypto ?? undefined}
-                    onSelect={(opt) => setSelectedCrypto(`${opt.currency}-${opt.network}`)}
-                  />
-                </div>
-
-                {selectedCrypto && (
-                  <div className="space-y-4">
-                    <div className="rounded-lg bg-navy-800 p-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-text-secondary">Challenge Fee</span>
-                        <span className="font-semibold">${selectedPricing?.equityChallenge}</span>
-                      </div>
-                      <div className="mt-2 flex justify-between text-sm">
-                        <span className="text-text-secondary">Payout</span>
-                        <span className="font-semibold text-green-400">Up to 90%</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-center gap-4 text-xs text-text-muted">
-                      <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-green-400" /> SSL Encrypted</span>
-                      <span className="flex items-center gap-1"><Lock className="h-3 w-3 text-green-400" /> Secure Payment</span>
-                      <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-green-400" /> Verified</span>
-                    </div>
-                    <GlowButton className="w-full" size="lg" onClick={handleStartPayment} disabled={checkingAuth}>
-                      {checkingAuth ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing you in...</> : 'Pay with Crypto'}
-                    </GlowButton>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </RevealOnScroll>
-        )}
-
-        {paymentId && (
-          <RevealOnScroll>
-            <div className="mx-auto mt-16 max-w-md text-center">
-              <div className="rounded-xl border border-teal-500/10 bg-navy-700/60 p-8">
-                <h2 className="mb-4 font-heading text-xl font-semibold text-green-400">
-                  Order Created
-                </h2>
-                <p className="mb-6 text-sm text-text-secondary">
-                  Your payment ID: <code className="font-mono text-teal-400">{paymentId}</code>
-                </p>
-                <TelegramRedirect paymentId={paymentId} />
-                <p className="mt-4 text-xs text-text-muted">
-                  Complete payment within 30 minutes via the Telegram bot
-                </p>
-              </div>
-            </div>
-          </RevealOnScroll>
-        )}
-      </div>
-    </div>
+    <Suspense
+      fallback={
+        <div className="flex min-h-dvh items-center justify-center pt-24">
+          <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+        </div>
+      }
+    >
+      <CheckoutClient />
+    </Suspense>
   );
 }

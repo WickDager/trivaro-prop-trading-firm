@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
@@ -8,6 +9,7 @@ import { X } from 'lucide-react';
 interface SheetContextValue {
   open: boolean;
   setOpen: (open: boolean) => void;
+  contentId: string;
 }
 
 const SheetContext = React.createContext<SheetContextValue | undefined>(undefined);
@@ -24,6 +26,7 @@ export function Sheet({ children, open: controlledOpen, onOpenChange }: {
   onOpenChange?: (open: boolean) => void;
 }) {
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const contentId = React.useId();
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = React.useCallback(
@@ -34,20 +37,38 @@ export function Sheet({ children, open: controlledOpen, onOpenChange }: {
     [isControlled, onOpenChange],
   );
 
+  // Lock body scroll while the sheet is open. `position: fixed` is used to stop
+  // iOS rubber-banding, but that resets the scroll offset unless we pin the
+  // body with `top: -<scrollY>` and restore it on close. Without this the page
+  // jumps to the top and stays there after the menu closes.
   React.useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-    } else {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-    }
+    if (!open) return;
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const previous = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+
     return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
+      body.style.position = previous.position;
+      body.style.top = previous.top;
+      body.style.left = previous.left;
+      body.style.right = previous.right;
+      body.style.width = previous.width;
+      body.style.overflow = previous.overflow;
+      window.scrollTo(0, scrollY);
     };
   }, [open]);
 
@@ -60,16 +81,41 @@ export function Sheet({ children, open: controlledOpen, onOpenChange }: {
   }, [open, setOpen]);
 
   return (
-    <SheetContext.Provider value={{ open, setOpen }}>
+    <SheetContext.Provider value={{ open, setOpen, contentId }}>
       {children}
     </SheetContext.Provider>
   );
 }
 
-export function SheetTrigger({ children, className }: { children: React.ReactNode; className?: string }) {
-  const { setOpen } = useSheet();
-  const child = React.Children.only(children) as React.ReactElement<{ onClick?: () => void; className?: string }>;
-  return React.cloneElement(child, { onClick: () => setOpen(true), className: cn(child.props.className, className) });
+export function SheetTrigger({ children, className, asChild = true }: {
+  children: React.ReactNode;
+  className?: string;
+  asChild?: boolean;
+}) {
+  const { setOpen, open, contentId } = useSheet();
+  const triggerProps = {
+    onClick: () => setOpen(true),
+    'aria-haspopup': 'dialog' as const,
+    'aria-expanded': open,
+    'aria-controls': open ? contentId : undefined,
+  };
+
+  if (!asChild) {
+    return (
+      <button type="button" className={className} {...triggerProps}>
+        {children}
+      </button>
+    );
+  }
+
+  const child = React.Children.only(children) as React.ReactElement<{
+    onClick?: () => void;
+    className?: string;
+  }>;
+  return React.cloneElement(child, {
+    ...triggerProps,
+    className: cn(child.props.className, className),
+  });
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
@@ -77,14 +123,21 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(selector));
 }
 
-export function SheetContent({ children, side = 'bottom', className }: {
+export function SheetContent({ children, side = 'bottom', className, 'aria-label': ariaLabel }: {
   children: React.ReactNode;
   side?: 'top' | 'bottom' | 'left' | 'right';
   className?: string;
+  'aria-label'?: string;
 }) {
-  const { open, setOpen } = useSheet();
+  const { open, setOpen, contentId } = useSheet();
   const contentRef = React.useRef<HTMLDivElement>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
+  // The sheet must be portalled to <body>. Several triggers live inside headers
+  // that use `backdrop-blur`, and a non-none backdrop-filter makes that header
+  // the containing block for `position: fixed` descendants — which collapsed
+  // the sheet into the height of the header bar.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
 
   const sideClasses = {
     top: 'top-0 left-0 right-0',
@@ -137,7 +190,9 @@ export function SheetContent({ children, side = 'bottom', className }: {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open]);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50">
@@ -151,15 +206,19 @@ export function SheetContent({ children, side = 'bottom', className }: {
           />
           <motion.div
             ref={contentRef}
+            id={contentId}
             role="dialog"
             aria-modal="true"
+            aria-label={ariaLabel ?? 'Menu'}
             className={cn(
-              'fixed z-50 border border-teal-500/10 bg-navy-800 p-6 shadow-2xl overscroll-contain',
+              // Safe-area padding keeps the last row clear of the iOS home
+              // indicator / Android gesture bar.
+              'fixed z-50 overscroll-contain border border-teal-500/10 bg-navy-800 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] shadow-2xl',
               side === 'bottom' && 'rounded-t-2xl',
               sideClasses[side],
-              side === 'bottom' && 'max-h-[85vh] overflow-y-auto',
-              side === 'left' && 'w-72',
-              side === 'right' && 'w-72',
+              side === 'bottom' && 'max-h-[85dvh] overflow-y-auto',
+              side === 'left' && 'w-72 overflow-y-auto',
+              side === 'right' && 'w-72 overflow-y-auto',
               className,
             )}
             initial={variants.initial}
@@ -168,9 +227,10 @@ export function SheetContent({ children, side = 'bottom', className }: {
             transition={{ type: 'tween', ease: 'easeOut', duration: 0.3 }}
           >
             <button
+              type="button"
               onClick={() => setOpen(false)}
-              className="absolute right-4 top-4 rounded-lg p-1 text-text-muted transition-colors hover:bg-navy-700 hover:text-white"
-              aria-label="Close"
+              className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-navy-700 hover:text-white active:bg-navy-600"
+              aria-label="Close menu"
             >
               <X className="h-5 w-5" />
             </button>
@@ -178,6 +238,7 @@ export function SheetContent({ children, side = 'bottom', className }: {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

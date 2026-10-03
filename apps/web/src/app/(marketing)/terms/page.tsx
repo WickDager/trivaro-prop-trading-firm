@@ -1,7 +1,30 @@
-'use client';
-
+import type { Metadata } from 'next';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GradientText } from '@/components/shared/GradientText';
+
+const title = 'Terms of Service';
+const description =
+  'The terms that govern your use of Trivaro: challenge participation rules, cryptocurrency payments and refunds, intellectual property and liability.';
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: { canonical: '/terms' },
+  openGraph: {
+    type: 'website',
+    url: '/terms',
+    siteName: 'Trivaro',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+};
 
 export default function TermsPage() {
   return (

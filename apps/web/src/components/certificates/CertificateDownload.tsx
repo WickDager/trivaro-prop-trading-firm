@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Loader2, Download, Award } from 'lucide-react';
+import { Loader2, Download, Award } from 'lucide-react';
 
 interface CertificateDownloadProps {
   challengeId: string;

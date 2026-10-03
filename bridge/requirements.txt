@@ -1,2 +1,9 @@
-MetaTrader5
-requests
+# Pinned exactly: the bridge runs unattended on a client VPS, and an unpinned
+# MetaTrader5/requests upgrade can change history-deal semantics or retry
+# behaviour without any code change on our side.
+# urllib3 is imported directly (urllib3.util.retry.Retry), so it is pinned
+# rather than left to arrive transitively through requests.
+# All three require Python >= 3.10.
+MetaTrader5==5.0.6231
+requests==2.34.2
+urllib3==2.8.0

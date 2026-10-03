@@ -1,10 +1,34 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
-import { GlowButton } from '@/components/shared/GlowButton';
 import { GradientText } from '@/components/shared/GradientText';
 import { Wallet, TrendingUp, DollarSign, Trophy } from 'lucide-react';
+
+const title = 'How It Works';
+const description =
+  'How Trivaro works: pick a challenge account, trade the two-phase evaluation, get verified and receive a funded account, plus the full challenge rules.';
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: { canonical: '/how-it-works' },
+  openGraph: {
+    type: 'website',
+    url: '/how-it-works',
+    siteName: 'Trivaro',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/brand/trivaro-social-banner.svg'],
+  },
+};
 
 const steps = [
   {
@@ -66,7 +90,9 @@ export default function HowItWorksPage() {
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-teal-500/10 text-teal-400">
                     <Icon className="h-8 w-8" />
                   </div>
-                  <h3 className="mb-2 font-heading text-lg font-semibold">{step.title}</h3>
+                  {/* h2, not h3: these steps sit directly under the page h1, and
+                      jumping h1 → h3 breaks the document outline. */}
+                  <h2 className="mb-2 font-heading text-lg font-semibold">{step.title}</h2>
                   <p className="text-sm text-text-secondary">{step.description}</p>
                 </div>
               </RevealOnScroll>
@@ -97,8 +123,8 @@ export default function HowItWorksPage() {
 
         <RevealOnScroll delay={0.3}>
           <div className="mt-16 text-center">
-            <Link href="/challenges">
-              <GlowButton size="xl">Start Your Challenge</GlowButton>
+            <Link href="/challenges" className={cn(buttonVariants({ variant: 'glow', size: 'xl' }))}>
+              Start Your Challenge
             </Link>
           </div>
         </RevealOnScroll>

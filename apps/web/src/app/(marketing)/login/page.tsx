@@ -20,7 +20,13 @@ type AuthStep = 'idle' | 'loading' | 'magic_link_sent' | 'check_email';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') ?? '/dashboard';
+  // Only same-origin absolute paths — `?redirect=https://evil.example` would
+  // otherwise turn the trusted login page into an open redirect.
+  const redirectParam = searchParams.get('redirect');
+  const redirect =
+    redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+      ? redirectParam
+      : '/dashboard';
   const { supabase, signInWithGoogle } = useSupabase();
 
   const [mode, setMode] = useState<AuthMode>('signin');
@@ -302,6 +308,7 @@ function LoginForm() {
                       name="firstName"
                       type="text"
                       required
+                      autoComplete="given-name"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       className="w-full rounded-lg border border-teal-500/10 bg-navy-800 py-2.5 px-3 text-sm text-white placeholder-text-muted focus:border-teal-400 focus:outline-none"
@@ -315,6 +322,7 @@ function LoginForm() {
                       name="lastName"
                       type="text"
                       required
+                      autoComplete="family-name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       className="w-full rounded-lg border border-teal-500/10 bg-navy-800 py-2.5 px-3 text-sm text-white placeholder-text-muted focus:border-teal-400 focus:outline-none"
@@ -338,6 +346,7 @@ function LoginForm() {
                     className="w-full rounded-lg border border-teal-500/10 bg-navy-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder-text-muted focus:border-teal-400 focus:outline-none"
                     placeholder="you@example.com"
                     autoComplete="email"
+                    inputMode="email"
                   />
                 </div>
               </div>
@@ -361,9 +370,11 @@ function LoginForm() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                   </button>
                 </div>
                 {mode === 'signup' && (
@@ -389,11 +400,15 @@ function LoginForm() {
                 )}
               </div>
 
+              {/* The loading state renders a bare spinner, so the button needs
+                  an explicit name that does not change while it is busy. */}
               <GlowButton
                 type="submit"
                 className="w-full"
                 size="lg"
                 disabled={step === 'loading'}
+                aria-label={mode === 'signin' ? 'Sign In' : 'Create Account'}
+                aria-busy={step === 'loading'}
               >
                 {step === 'loading' ? (
                   <Loader2 className="h-5 w-5 animate-spin" />

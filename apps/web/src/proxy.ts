@@ -1,14 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
-const protectedPaths = ['/dashboard', '/challenge', '/payments', '/settings', '/admin'];
-const authPaths = ['/login', '/auth'];
+const protectedPaths = ['/dashboard', '/challenge', '/payments', '/admin'];
+// `/auth/*` is deliberately NOT listed. The callback route must run even for a
+// user who already has a session, otherwise a magic-link / email-confirmation
+// click is bounced to /dashboard before `exchangeCodeForSession` executes and
+// the sign-in silently never completes.
+const authPaths = ['/login'];
+
+/** Matches the path itself and its children, but not sibling prefixes
+ *  (`/challenge` matches `/challenge/123`, not `/challenges`). */
+function matchesPath(pathname: string, base: string) {
+  return pathname === base || pathname.startsWith(`${base}/`);
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
-  const isAuthPage = authPaths.some((p) => pathname.startsWith(p));
+  const isProtected = protectedPaths.some((p) => matchesPath(pathname, p));
+  const isAuthPage = authPaths.some((p) => matchesPath(pathname, p));
 
   const { supabase, supabaseResponse } = createServerClient(request);
 

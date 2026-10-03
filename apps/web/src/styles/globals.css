@@ -6,17 +6,35 @@
   --color-navy-700: #0D1F35;
   --color-navy-600: #1A2A40;
   --color-navy-500: #23293A;
-  --color-teal-DEFAULT: #00D9FF;
+
+  /* Brand cyan. NOTE: `teal` and `green` are BUILT-IN Tailwind palettes, so
+     `bg-teal-500` resolves to stock teal unless we override the exact shade
+     keys we use. The old `--color-teal-DEFAULT` spelling did nothing (that is
+     the v3 convention) which is why the whole UI rendered stock green-teal
+     instead of brand cyan. Override the real keys below. */
+  --color-teal-300: #7DE9FF;
+  --color-teal-400: #00D9FF;
+  --color-teal-500: #00D9FF;
+  --color-teal-600: #00B3D6;
+  --color-teal-700: #008FB3;
+
+  /* Brand green */
+  --color-green-300: #7DFFBC;
+  --color-green-400: #00FF88;
+  --color-green-500: #00E07A;
+  --color-green-600: #00B363;
+
   --color-teal-glow: rgba(0, 217, 255, 0.3);
   --color-teal-muted: rgba(0, 217, 255, 0.1);
-  --color-green-DEFAULT: #00FF88;
   --color-green-glow: rgba(0, 255, 136, 0.3);
   --color-green-muted: rgba(0, 255, 136, 0.1);
   --color-surface: #1A1F2E;
   --color-border: #23293A;
   --color-text-primary: #FFFFFF;
   --color-text-secondary: #A0AEC0;
-  --color-text-muted: #718096;
+  /* Was #718096, which is 4.14:1 on navy-700 cards and 3.61:1 on navy-600 —
+     both fail WCAG AA for the small text it is used on. #94A3B8 ≈ 6.5:1. */
+  --color-text-muted: #94A3B8;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-heading: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -60,12 +78,48 @@
 @layer base {
   * {
     border-color: var(--color-border);
+    min-width: 0;
   }
   body {
     background-color: var(--color-navy-800);
     color: var(--color-text-primary);
     font-family: var(--font-sans);
+    /* Prevent iOS Safari from inflating text in landscape. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
+  /* Long, unbroken strings (wallet addresses, tx hashes, emails) must never
+     force horizontal scroll on narrow screens. */
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+}
+
+/* Safe-area helpers for notched devices (require viewport-fit=cover). */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+@utility px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+@utility mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility h-safe-bottom {
+  height: env(safe-area-inset-bottom, 0px);
 }
 
 @layer utilities {
@@ -85,14 +139,46 @@
   .gradient-border {
     border-image: linear-gradient(135deg, #00D9FF, #00FF88) 1;
   }
+  /* Horizontal scrollers that should not show a scrollbar on touch devices. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 html {
-  scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  /* `clip` (not `hidden`) so stray overflow never causes horizontal panning
+     while `position: sticky` keeps working. */
+  overflow-x: clip;
 }
 
+/* Smooth scrolling is a desktop nicety; on mobile it makes long same-page jumps
+   take seconds. */
+@media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* iOS Safari zooms the viewport when a focused field's font-size is below 16px,
+   and never zooms back out. Fields carry `text-sm` utilities, which beat
+   `@layer base` rules, so this block is intentionally left UNLAYERED to win
+   over the utility layer — and scoped to mobile so desktop keeps `text-sm`. */
+@media (max-width: 639.98px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Honour reduced-motion for Framer Motion driven transforms too, and drop the
+   expensive decorative blurs that melt low-end mobile GPUs. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -101,5 +187,15 @@ html {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .blur-\[120px\],
+  .blur-\[100px\],
+  .blur-\[80px\],
+  .blur-\[64px\],
+  .blur-\[48px\] {
+    filter: blur(40px);
   }
 }

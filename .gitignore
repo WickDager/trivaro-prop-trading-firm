@@ -9,5 +9,9 @@ dist/
 .vercel
 supabase/.temp/
 bridge/config.json
+# Runtime state: holds a per-account last_ticket cursor. Committing it makes a
+# fresh clone silently skip every trade at or below the stale cursor.
+bridge/bridge_state.json
+bridge/bridge.log
 *.tsbuildinfo
 -w

@@ -1,9 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
 import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CryptoOption {
   currency: string;
@@ -21,31 +19,48 @@ const options: CryptoOption[] = [
 interface CryptoSelectorProps {
   onSelect: (option: CryptoOption) => void;
   selected?: string;
+  /**
+   * Networks whose payment verifier is live. Anything not listed is rendered
+   * disabled — accepting a payment we cannot verify on-chain would take the
+   * customer's money without crediting their order.
+   */
+  enabledNetworks?: ReadonlySet<string>;
 }
 
-export function CryptoSelector({ onSelect, selected }: CryptoSelectorProps) {
+export function CryptoSelector({ onSelect, selected, enabledNetworks }: CryptoSelectorProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
-      {options.map((opt) => (
-        <button
-          key={`${opt.currency}-${opt.network}`}
-          onClick={() => onSelect(opt)}
-          className={cn(
-            'relative flex flex-1 flex-col items-center gap-2 rounded-xl border p-4 transition-all',
-            selected === `${opt.currency}-${opt.network}`
-              ? 'border-teal-400 bg-teal-500/10'
-              : 'border-teal-500/10 bg-navy-700/60 hover:border-teal-500/30',
-          )}
-        >
-          {selected === `${opt.currency}-${opt.network}` && (
-            <Check className="absolute right-2 top-2 h-4 w-4 text-teal-400" />
-          )}
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/20 font-mono text-lg font-bold text-teal-400">
-            {opt.icon}
-          </span>
-          <span className="text-xs font-medium">{opt.label}</span>
-        </button>
-      ))}
+      {options.map((opt) => {
+        const key = `${opt.currency}-${opt.network}`;
+        const isSelected = selected === key;
+        const disabled = enabledNetworks ? !enabledNetworks.has(opt.network) : false;
+
+        return (
+          <button
+            key={key}
+            type="button"
+            disabled={disabled}
+            aria-pressed={isSelected}
+            onClick={() => onSelect(opt)}
+            className={cn(
+              'relative flex min-h-11 flex-1 flex-col items-center gap-2 rounded-xl border p-4 transition-all active:scale-[0.98]',
+              isSelected
+                ? 'border-teal-400 bg-teal-500/10'
+                : 'border-teal-500/10 bg-navy-700/60 hover:border-teal-500/30',
+              disabled && 'cursor-not-allowed opacity-40 hover:border-teal-500/10',
+            )}
+          >
+            {isSelected && !disabled && (
+              <Check className="absolute right-2 top-2 h-4 w-4 text-teal-400" />
+            )}
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/20 font-mono text-lg font-bold text-teal-400">
+              {opt.icon}
+            </span>
+            <span className="text-xs font-medium">{opt.label}</span>
+            {disabled && <span className="text-[10px] text-text-muted">Coming soon</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }

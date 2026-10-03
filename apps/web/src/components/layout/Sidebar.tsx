@@ -1,18 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/shared/Logo';
-import {
-  LayoutDashboard,
-  Wallet,
-  Shield,
-  LogOut,
-} from 'lucide-react';
+import { LayoutDashboard, Wallet, Shield, LogOut } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
-import { createBrowserClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 
 const sidebarLinks = [
@@ -20,22 +13,18 @@ const sidebarLinks = [
   { href: '/payments', label: 'Payments', icon: Wallet },
 ];
 
-export function Sidebar() {
+function isLinkActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+interface SidebarProps {
+  /** Resolved server-side by the dashboard layout. */
+  isAdmin?: boolean;
+}
+
+export function Sidebar({ isAdmin = false }: SidebarProps) {
   const pathname = usePathname();
   const { signOut } = useSupabase();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    const supabase = createBrowserClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
-      const { data: profile } = await (supabase.from('profiles') as any)
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      setIsAdmin((profile as { role: string } | null)?.role === 'admin');
-    });
-  }, []);
 
   return (
     <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
@@ -47,11 +36,12 @@ export function Sidebar() {
           <ul className="flex flex-1 flex-col gap-y-2">
             {sidebarLinks.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href;
+              const isActive = isLinkActive(pathname, item.href);
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                       isActive

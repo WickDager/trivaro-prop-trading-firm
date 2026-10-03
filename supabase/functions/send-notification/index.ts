@@ -1,9 +1,27 @@
 import { serve } from 'std/http/server.ts';
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
-const EDGE_FUNCTION_API_KEY = Deno.env.get('EDGE_FUNCTION_API_KEY')!;
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+const EDGE_FUNCTION_API_KEY = Deno.env.get('EDGE_FUNCTION_API_KEY');
 const RESEND_URL = 'https://api.resend.com/emails';
-const FROM_EMAIL = 'Trivaro <notifications@trivaro.com>';
+const FROM_EMAIL = Deno.env.get('NOTIFICATION_FROM_EMAIL') ?? 'Trivaro <notifications@trivaro.com>';
+
+/**
+ * Constant-time comparison over equal-length digests.
+ *
+ * The `!` non-null assertions this replaces were TypeScript-only: when the
+ * env var was unset, `Deno.env.get(...)!` was `undefined` at runtime, the
+ * template literal produced the string "undefined", and the check
+ * `authHeader !== \`Bearer ${undefined}\`` therefore PASSED for anyone
+ * sending "Authorization: Bearer undefined" — an open email relay.
+ */
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(a)),
+    crypto.subtle.digest('SHA-256', enc.encode(b)),
+  ]);
+  return crypto.subtle.timingSafeEqual(ha, hb);
+}
 
 interface WebhookPayload {
   type: 'INSERT';
@@ -30,8 +48,25 @@ interface WebhookPayload {
 }
 
 function buildHtml(record: WebhookPayload['record']): string {
-  const m = record.metadata;
-  const equityFormatted = record.equity_at_time ? `$${record.equity_at_time.toLocaleString()}` : 'N/A';
+  // Postgres `jsonb` can be NULL or partial, and the stored metadata is built
+  // by the DB trigger — never assume a key exists. The previous code called
+  // `.toFixed(2)` on possibly-undefined values, which threw, returned a 500,
+  // and made the DB webhook retry forever.
+  const raw = record.metadata ?? {};
+  const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const m = {
+    profit_pct: num(raw.profit_pct),
+    daily_drawdown_pct: num(raw.daily_drawdown_pct),
+    max_drawdown_pct: num(raw.max_drawdown_pct),
+    trading_days: num(raw.trading_days),
+    starting_balance: num(raw.starting_balance),
+    account_size: num(raw.account_size),
+  };
+  // `equity_at_time ? ...` printed "N/A" for a legitimate equity of 0.
+  const equityFormatted =
+    record.equity_at_time === null || record.equity_at_time === undefined
+      ? 'N/A'
+      : `$${record.equity_at_time.toLocaleString()}`;
 
   switch (record.type) {
     case 'challenge_failed': {
@@ -110,13 +145,24 @@ function buildHtml(record: WebhookPayload['record']): string {
 </td></tr></table></body></html>`;
 
     default:
-      return '';
+      // Returning '' sent an EMPTY email with a 200 OK for any unrecognised
+      // type. Throw instead so the caller sees a real failure.
+      throw new Error(`unsupported notification type: ${record.type}`);
   }
 }
 
 serve(async (req) => {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader || authHeader !== `Bearer ${EDGE_FUNCTION_API_KEY}`) {
+  // Fail closed: never fall through to a comparison when the secret is absent.
+  if (!EDGE_FUNCTION_API_KEY || !RESEND_API_KEY) {
+    console.error('send-notification misconfigured: missing required environment variables');
+    return new Response(JSON.stringify({ error: 'server_misconfigured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const authHeader = req.headers.get('authorization') ?? '';
+  if (!(await timingSafeEqual(authHeader, `Bearer ${EDGE_FUNCTION_API_KEY}`))) {
     return new Response(JSON.stringify({ error: 'unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
