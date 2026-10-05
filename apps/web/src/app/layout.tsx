@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@/components/ui/toast';
 import { MotionProvider } from '@/components/shared/MotionProvider';
+import { APP_URL } from '@/lib/constants';
 import '@/styles/globals.css';
 
 export const viewport: Viewport = {
@@ -16,7 +17,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  metadataBase: new URL(APP_URL),
   title: {
     default: 'Trivaro — Prop Trading Firm',
     template: '%s | Trivaro',

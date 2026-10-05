@@ -1,7 +1,25 @@
 import type { ChallengePricing } from '@trivaro/shared-types';
 
 export const APP_NAME = 'Trivaro';
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+// A malformed NEXT_PUBLIC_APP_URL must not fail the build. layout.tsx calls
+// `new URL(APP_URL)` while Next collects page data, so a value saved without a
+// scheme ("trivaro.com" rather than "https://trivaro.com") throws
+// ERR_INVALID_URL and aborts the whole deploy. Accept a bare host, and fall
+// back to localhost only when the value cannot be parsed at all.
+function normalizeAppUrl(raw: string | undefined): string {
+  const fallback = 'http://localhost:3000';
+  const value = raw?.trim();
+  if (!value) return fallback;
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`;
+  try {
+    return new URL(withScheme).origin;
+  } catch {
+    return fallback;
+  }
+}
+
+export const APP_URL = normalizeAppUrl(process.env.NEXT_PUBLIC_APP_URL);
 export const TELEGRAM_BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'TrivaroPayBot';
 
 export const CHALLENGE_PRICING: ChallengePricing[] = [
