@@ -21,7 +21,7 @@ Telegram Bot ← Payment Verification → Edge Functions → Resend (email)
 | Database | Supabase (PostgreSQL) |
 | Edge Functions | Supabase (Deno / TypeScript) |
 | Charts | Recharts |
-| Payments | TRC20 USDT, USDC (Base), BTC — verified on-chain |
+| Payments | USDT on TRC20 — **live**. ERC20 and BTC implemented but disabled at checkout |
 | MT5 Monitor | Python (Windows VPS) |
 | Email | Resend |
 | Bot | Telegram (Deno) |
@@ -135,8 +135,12 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=<bot-username>
 
 # Wallet (receiving payments)
+# Must match app_config.hot_wallet_* in the database — that is the runtime
+# source of truth. Use HOT_WALLET_USDC_ERC20; HOT_WALLET_USDC_BASE is a dead
+# name that no code reads.
 HOT_WALLET_USDT_TRC20=<wallet-address>
 HOT_WALLET_BTC=<wallet-address>
+HOT_WALLET_USDC_ERC20=<wallet-address>
 
 # MT5 Integration
 MT5_API_SECRET=<mt5-api-secret>
@@ -185,7 +189,7 @@ Six edge functions are deployed on Supabase:
 | Function | Trigger | Purpose |
 |----------|---------|---------|
 | `telegram-webhook` | Telegram webhook | Handles bot messages (`/pay`, `/verify`, `/status`) |
-| `verify-payment` | HTTP POST | Verifies blockchain transactions (USDT, USDC, BTC) |
+| `verify-payment` | HTTP POST | Verifies on-chain payment. TRC20 live; the ERC20 and BTC branches exist but are unreachable from checkout today |
 | `create-challenge` | Database webhook | Creates challenge account on verified payment |
 | `send-credentials` | Database webhook | Emails MT5 credentials after challenge creation |
 | `receive-trade` | HTTP POST (MT5 bridge) | Receives and deduplicates trades from MT5 monitor |
