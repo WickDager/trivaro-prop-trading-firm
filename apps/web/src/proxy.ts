@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
-const protectedPaths = ['/dashboard', '/challenge', '/payments', '/admin'];
+const protectedPaths = ['/dashboard', '/challenge', '/payments', '/admin', '/settings'];
 // `/auth/*` is deliberately NOT listed. The callback route must run even for a
 // user who already has a session, otherwise a magic-link / email-confirmation
 // click is bounced to /dashboard before `exchangeCodeForSession` executes and

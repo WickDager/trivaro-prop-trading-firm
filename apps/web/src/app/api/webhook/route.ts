@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
+import { createHash, timingSafeEqual as nodeTimingSafeEqual } from 'node:crypto';
 
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
+
+/**
+ * Constant-time comparison over equal-length digests. A plain `!==` short
+ * circuits on the first differing byte, leaking length and prefix. Mirrors
+ * `timingSafeEqual` in supabase/functions/_shared/security.ts, which every
+ * edge function already uses.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  const digestA = createHash('sha256').update(a).digest();
+  const digestB = createHash('sha256').update(b).digest();
+  return nodeTimingSafeEqual(digestA, digestB);
+}
 
 interface TelegramUpdate {
   update_id: number;
@@ -39,11 +52,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
     }
 
-    if (TELEGRAM_WEBHOOK_SECRET) {
-      const token = request.headers.get('x-telegram-bot-api-secret-token');
-      if (token !== TELEGRAM_WEBHOOK_SECRET) {
-        return NextResponse.json({ ok: false }, { status: 401 });
-      }
+    // Fail CLOSED. This previously read `if (TELEGRAM_WEBHOOK_SECRET) { ... }`,
+    // so an unset/empty env var skipped authentication entirely and the
+    // endpoint accepted any POST. Every edge function in this project fails
+    // closed in the same situation (see _shared/security.ts: requireEdgeKey).
+    if (!TELEGRAM_WEBHOOK_SECRET) {
+      console.error('webhook misconfigured: TELEGRAM_WEBHOOK_SECRET is not set');
+      return NextResponse.json({ ok: false, error: 'server_misconfigured' }, { status: 500 });
+    }
+
+    const token = request.headers.get('x-telegram-bot-api-secret-token') ?? '';
+    if (!timingSafeEqual(token, TELEGRAM_WEBHOOK_SECRET)) {
+      return NextResponse.json({ ok: false }, { status: 401 });
     }
 
     const text = await request.text();

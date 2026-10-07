@@ -30,9 +30,11 @@ export default function PaymentsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
+        // Explicit columns rather than `select('*')` — orders carries
+        // wallet_address, tx_hash and internal state the history view never uses.
         const { data } = await supabase
           .from('orders')
-          .select('*')
+          .select('id,payment_id,amount_usd,crypto_currency,network,status,created_at,account_size')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
         setPayments(data as unknown as PaymentRecord[] ?? []);

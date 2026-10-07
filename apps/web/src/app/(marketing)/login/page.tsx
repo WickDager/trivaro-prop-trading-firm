@@ -23,10 +23,16 @@ function LoginForm() {
   // Only same-origin absolute paths — `?redirect=https://evil.example` would
   // otherwise turn the trusted login page into an open redirect.
   const redirectParam = searchParams.get('redirect');
-  const redirect =
-    redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
-      ? redirectParam
-      : '/dashboard';
+  // http(s) URL parsers normalise a backslash to a forward slash, so
+  // `/\evil.com` resolves to the protocol-relative `//evil.com`. Reject it
+  // alongside `//`, or this page becomes an open redirect. Mirrors safeNext()
+  // in app/auth/callback/route.ts.
+  const isSafeRedirect =
+    !!redirectParam &&
+    redirectParam.startsWith('/') &&
+    !redirectParam.startsWith('//') &&
+    !redirectParam.startsWith('/\\');
+  const redirect = isSafeRedirect ? redirectParam : '/dashboard';
   const { supabase, signInWithGoogle } = useSupabase();
 
   const [mode, setMode] = useState<AuthMode>('signin');

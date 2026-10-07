@@ -23,7 +23,10 @@ function mintCertificateNumber(): string {
   return `TRV-${year}-${String(random).padStart(5, '0')}`;
 }
 
-export async function GET(request: Request) {
+// POST, not GET. This handler persists a row, and a GET is triggerable
+// cross-site by an <img> tag or a link prefetcher — which, with sameSite=Lax
+// session cookies, mints a certificate from a victim's session.
+export async function POST(request: Request) {
   try {
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -32,8 +35,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const challengeId = searchParams.get('challengeId');
+    let challengeId: string | null = null;
+    try {
+      const body = await request.json();
+      challengeId = typeof body?.challengeId === 'string' ? body.challengeId : null;
+    } catch {
+      return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+    }
 
     if (!challengeId) {
       return NextResponse.json({ error: 'challengeId is required' }, { status: 400 });

@@ -69,9 +69,12 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ id: 
       setChallenge(challengeData as unknown as Challenge);
 
       // Fetch trades
+      // Explicit columns, matching what TradeHistory actually renders. The
+      // challenge query above avoids `select('*')` because it pulled
+      // `account_password` into the browser; hold the same line here.
       const { data: tradesData } = await supabase
         .from('trades')
-        .select('*')
+        .select('id,symbol,type,lots,profit,close_time')
         .eq('challenge_id', id)
         .order('close_time', { ascending: false })
         .limit(100);

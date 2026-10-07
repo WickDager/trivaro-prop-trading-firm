@@ -19,7 +19,11 @@ export function CertificateDownload({ challengeId, isComplete }: CertificateDown
     setError(null);
 
     try {
-      const res = await fetch(`/api/certificate/generate?challengeId=${challengeId}`);
+      const res = await fetch('/api/certificate/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId }),
+      });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to generate certificate');
@@ -42,7 +46,7 @@ export function CertificateDownload({ challengeId, isComplete }: CertificateDown
   }
 
   return (
-    <div className="rounded-xl border border-teal-500/10 bg-gradient-to-br from-green-500/5 to-teal-500/5 p-6">
+    <div className="rounded-xl border border-teal-500/10 bg-linear-to-br from-green-500/5 to-teal-500/5 p-6">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-500/10">
@@ -61,7 +65,7 @@ export function CertificateDownload({ challengeId, isComplete }: CertificateDown
         <button
           onClick={handleDownload}
           disabled={loading}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-teal-500 px-5 py-2.5 text-sm font-medium text-white transition-all hover:scale-105 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-linear-to-r from-green-500 to-teal-500 px-5 py-2.5 text-sm font-medium text-white transition-all hover:scale-105 disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />

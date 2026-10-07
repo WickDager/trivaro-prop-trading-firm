@@ -38,6 +38,7 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+from urllib.parse import urlsplit
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -109,10 +110,33 @@ def load_config(path: str) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         config = json.load(f)
 
-    required_top = ["endpoint_url", "api_secret", "accounts"]
+    required_top = ["endpoint_url", "supabase_url", "accounts"]
     for key in required_top:
         if key not in config:
             raise ValueError(f"Missing required config key: {key}")
+
+    endpoint = urlsplit(config["endpoint_url"])
+    supabase = urlsplit(config["supabase_url"])
+    if (
+        endpoint.scheme != "https"
+        or supabase.scheme != "https"
+        or not endpoint.hostname
+        or endpoint.hostname != supabase.hostname
+        or endpoint.username
+        or endpoint.password
+        or supabase.username
+        or supabase.password
+    ):
+        raise ValueError("endpoint_url and supabase_url must use the same HTTPS host")
+
+    config["api_secret"] = os.environ.get("MT5_API_SECRET", "").strip()
+    config["supabase_service_role_key"] = os.environ.get(
+        "SUPABASE_SERVICE_ROLE_KEY", ""
+    ).strip()
+    if not config["api_secret"] or not config["supabase_service_role_key"]:
+        raise ValueError(
+            "Set MT5_API_SECRET and SUPABASE_SERVICE_ROLE_KEY in the process environment"
+        )
 
     if not config["accounts"]:
         raise ValueError("accounts list is empty")

@@ -21,7 +21,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.6.0",
     "lucide-react": "^0.475.0",
-    "next": "16.2.6",
+    "next": "16.4.0",
     "qrcode.react": "^4.2.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
@@ -36,7 +36,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.20.0",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.4.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
     "typescript": "5.8.3"
