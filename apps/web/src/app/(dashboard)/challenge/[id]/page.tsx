@@ -7,6 +7,8 @@ import { EquityChart } from '@/components/dashboard/EquityChart';
 import { TradeHistory } from '@/components/dashboard/TradeHistory';
 import { DrawdownMeter } from '@/components/dashboard/DrawdownMeter';
 import { PhaseProgress } from '@/components/dashboard/PhaseProgress';
+import { CredentialStatusBanner } from '@/components/dashboard/CredentialStatusBanner';
+import type { CredentialStatus } from '@/components/dashboard/CredentialStatusBanner';
 import { GradientText } from '@/components/shared/GradientText';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle } from 'lucide-react';
@@ -55,7 +57,7 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ id: 
       // (the MT5 login) into the browser, and `server`.
       const { data: challengeData, error: challengeErr } = await supabase
         .from('challenges')
-        .select('id,status,current_equity,starting_balance,highest_equity,lowest_equity,profit_target,max_drawdown,daily_drawdown,min_trading_days,total_trades,winning_trades,trading_days,account_number,created_at,is_trial,trial_ends_at,trial_passed_at')
+        .select('id,status,current_equity,starting_balance,highest_equity,lowest_equity,profit_target,max_drawdown,daily_drawdown,min_trading_days,total_trades,winning_trades,trading_days,account_number,created_at,is_trial,trial_ends_at,trial_passed_at,credential_status')
         .eq('id', id)
         .eq('user_id', authData.user.id)
         .maybeSingle();
@@ -142,6 +144,11 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       <AccountCard challenge={challenge} />
+
+      <CredentialStatusBanner
+        status={challenge.credential_status as CredentialStatus | null}
+        isTrial={challenge.is_trial}
+      />
 
       <PhaseProgress currentPhase={phase} />
 

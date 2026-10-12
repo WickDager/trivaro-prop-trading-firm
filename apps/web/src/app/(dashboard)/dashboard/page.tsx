@@ -8,6 +8,8 @@ import { TradeHistory } from '@/components/dashboard/TradeHistory';
 import { DrawdownMeter } from '@/components/dashboard/DrawdownMeter';
 import { PhaseProgress } from '@/components/dashboard/PhaseProgress';
 import { TrialBanner } from '@/components/dashboard/TrialBanner';
+import { CredentialStatusBanner } from '@/components/dashboard/CredentialStatusBanner';
+import type { CredentialStatus } from '@/components/dashboard/CredentialStatusBanner';
 import { GradientText } from '@/components/shared/GradientText';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Challenge } from '@trivaro/shared-types';
@@ -83,7 +85,7 @@ export default function DashboardPage() {
       // Fetch challenge
       const { data: challengeData, error: challengeErr } = await supabase
         .from('challenges')
-        .select('id,status,current_equity,starting_balance,highest_equity,profit_target,max_drawdown,total_trades,winning_trades,trading_days,account_number,created_at,is_trial,trial_ends_at,trial_passed_at')
+        .select('id,status,current_equity,starting_balance,highest_equity,profit_target,max_drawdown,total_trades,winning_trades,trading_days,account_number,created_at,is_trial,trial_ends_at,trial_passed_at,credential_status')
         .eq('user_id', u.id)
         .in('status', ['trial', 'active', 'phase1_complete', 'phase2_complete', 'funded'])
         .order('created_at', { ascending: false })
@@ -191,6 +193,11 @@ export default function DashboardPage() {
           trialPassedAt={challenge.trial_passed_at}
         />
       )}
+
+      <CredentialStatusBanner
+        status={challenge.credential_status as CredentialStatus | null}
+        isTrial={challenge.is_trial}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

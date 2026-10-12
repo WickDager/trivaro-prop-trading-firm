@@ -8,7 +8,7 @@ import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GradientText } from '@/components/shared/GradientText';
 import { GlowButton } from '@/components/shared/GlowButton';
 import { useSupabase } from '@/hooks/useSupabase';
-import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/supabase';
+import { getSupabaseUrl, getSupabasePublishableKey } from '@/lib/supabase';
 import {
   Mail, Lock, Chrome, SendHorizonal,
   Eye, EyeOff, Loader2, AlertCircle, CheckCircle2,
@@ -103,7 +103,7 @@ function LoginForm() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'apikey': getSupabaseAnonKey(),
+              'apikey': getSupabasePublishableKey(),
               'X-Supabase-Api-Version': '2024-01-01',
             },
             body: JSON.stringify({

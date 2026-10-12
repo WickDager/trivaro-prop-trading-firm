@@ -10,8 +10,8 @@ function getSupabaseUrl(): string {
   return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321');
 }
 
-function getSupabaseAnonKey(): string {
-  return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder');
+function getSupabasePublishableKey(): string {
+  return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder');
 }
 
 export async function createServerClient() {
@@ -19,7 +19,7 @@ export async function createServerClient() {
 
   return createSsrServerClient<Database>(
     getSupabaseUrl(),
-    getSupabaseAnonKey(),
+    getSupabasePublishableKey(),
     {
       cookies: {
         getAll() {

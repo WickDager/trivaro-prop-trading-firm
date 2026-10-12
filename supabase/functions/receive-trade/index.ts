@@ -36,7 +36,23 @@ const INGESTIBLE_STATUSES = new Set(['trial', 'active', 'phase1_complete', 'phas
 
 const MT5_API_SECRET = Deno.env.get('MT5_API_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+function getSupabaseSecretKey(): string | null {
+  const rawKeys = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (!rawKeys) return null;
+
+  try {
+    const keys: unknown = JSON.parse(rawKeys);
+    if (typeof keys !== 'object' || keys === null || Array.isArray(keys)) return null;
+    const keyName = Deno.env.get('EDGE_SUPABASE_SECRET_KEY_NAME')?.trim() || 'default';
+    const key = (keys as Record<string, unknown>)[keyName];
+    return typeof key === 'string' && key.startsWith('sb_secret_') ? key : null;
+  } catch {
+    console.error('SUPABASE_SECRET_KEYS is not valid JSON');
+    return null;
+  }
+}
+
+const SUPABASE_SECRET_KEY = getSupabaseSecretKey();
 
 /**
  * Constant-time comparison. Hash both sides first so the comparison is always
@@ -48,7 +64,13 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
     crypto.subtle.digest('SHA-256', enc.encode(a)),
     crypto.subtle.digest('SHA-256', enc.encode(b)),
   ]);
-  return crypto.subtle.timingSafeEqual(ha, hb);
+  const digestA = new Uint8Array(ha);
+  const digestB = new Uint8Array(hb);
+  let mismatch = digestA.length ^ digestB.length;
+  for (let i = 0; i < digestA.length; i++) {
+    mismatch |= digestA[i] ^ digestB[i];
+  }
+  return mismatch === 0;
 }
 
 function json(body: unknown, status: number): Response {
@@ -66,7 +88,7 @@ serve(async (req) => {
   // `authHeader !== \`Bearer ${MT5_API_SECRET}\`` then PASSED for anyone
   // sending literally "Authorization: Bearer undefined".
   // ---------------------------------------------------------------------
-  if (!MT5_API_SECRET || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!MT5_API_SECRET || !SUPABASE_URL || !SUPABASE_SECRET_KEY) {
     console.error('receive-trade misconfigured: missing required environment variables');
     return json({ error: 'server_misconfigured' }, 500);
   }
@@ -76,7 +98,7 @@ serve(async (req) => {
     return json({ error: 'unauthorized' }, 401);
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 

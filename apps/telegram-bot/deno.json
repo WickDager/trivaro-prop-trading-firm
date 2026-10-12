@@ -4,6 +4,6 @@
     "start": "deno run --env-file --allow-net --allow-env --allow-read src/index.ts"
   },
   "imports": {
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.49.1"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.117.2"
   }
 }

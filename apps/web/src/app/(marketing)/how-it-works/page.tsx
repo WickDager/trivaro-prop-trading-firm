@@ -35,7 +35,7 @@ const steps = [
     icon: Wallet,
     title: '1. Choose & Pay',
     description:
-      'Select your challenge account size ($5K-$100K) and pay the one-time fee using USDT, USDC, or BTC via our Telegram bot.',
+      'Select your challenge account size ($5K-$100K) and pay the one-time fee in USDT on the TRC20 network via our Telegram bot.',
   },
   {
     icon: TrendingUp,
@@ -53,7 +53,7 @@ const steps = [
     icon: Trophy,
     title: '4. Get Funded',
     description:
-      'Receive your funded account with real capital. Keep up to 90% of all profits. No monthly fees, no minimum trading days.',
+      'Receive your funded account with real capital. Keep up to 90% of all profits. No monthly fees and no time limit — meet the 5-day minimum and you are on your way.',
   },
 ];
 
@@ -62,8 +62,12 @@ const rules = [
   { label: 'Max Daily Drawdown', value: '3%' },
   { label: 'Max Total Drawdown', value: '5%' },
   { label: 'Minimum Trading Days', value: '5' },
+  { label: 'Time Limit', value: 'None' },
+  { label: 'News Trading', value: 'Allowed' },
+  { label: 'EAs, Bots & Algo', value: 'Allowed (conditions apply)' },
+  { label: 'High-Frequency Trading', value: 'Not permitted' },
   { label: 'Profit Split', value: 'Up to 90%' },
-  { label: 'Refundable', value: 'Yes (Phase 1)' },
+  { label: 'Refundable', value: 'Yes — if you never access Phase 1 (within 7 days)' },
 ];
 
 export default function HowItWorksPage() {
@@ -118,6 +122,14 @@ export default function HowItWorksPage() {
                 </div>
               ))}
             </div>
+            <p className="mt-4 text-center text-sm text-text-muted">
+              Full details — including our news, Expert Advisor, high-frequency trading and copy-trading
+              policies — are in the{' '}
+              <Link href="/rules" className="text-teal-400 hover:underline">
+                Challenge Rules
+              </Link>
+              .
+            </p>
           </div>
         </RevealOnScroll>
 

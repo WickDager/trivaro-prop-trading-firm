@@ -34,6 +34,34 @@ async function deterministicOffset(paymentId: string): Promise<number> {
   return Math.round(offset * AMOUNT_SCALE) / AMOUNT_SCALE;
 }
 
+const PLACEHOLDER_PREFIX = 'REPLACE_ME';
+
+/**
+ * Deposit address for a TRC20 quote.
+ *
+ * `public.app_config` is the runtime source of truth — `create_order()` and
+ * `verify-payment` read the same `hot_wallet_trc20` key. Quoting from the env
+ * var alone could show a customer an address the verifier never scans, leaving
+ * their payment uncredited. The env var is only a fallback.
+ */
+async function resolveDepositAddress(): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'hot_wallet_trc20')
+      .maybeSingle();
+    const value = typeof data?.value === 'string' ? data.value.trim() : '';
+    if (value && !value.startsWith(PLACEHOLDER_PREFIX)) return value;
+  } catch (error) {
+    console.error(
+      'app_config lookup failed:',
+      error instanceof Error ? error.message : 'unknown',
+    );
+  }
+  return Deno.env.get('HOT_WALLET_USDT_TRC20')?.trim() ?? '';
+}
+
 export async function handleStart(chatId: number, payload: string, username?: string) {
   const paymentId = payload.replace('order_', '');
 
@@ -80,11 +108,11 @@ export async function handleStart(chatId: number, payload: string, username?: st
     return;
   }
 
-  const walletAddress = Deno.env.get('HOT_WALLET_USDT_TRC20')?.trim();
+  const walletAddress = await resolveDepositAddress();
   if (!walletAddress) {
     // The old `|| ''` fallback wrote an empty string to orders.wallet_address
     // and rendered an empty code span while the order still looked payable.
-    console.error('HOT_WALLET_USDT_TRC20 is not configured — refusing to quote a payment');
+    console.error('hot_wallet_trc20 / HOT_WALLET_USDT_TRC20 is not configured — refusing to quote a payment');
     await sendMessage(
       chatId,
       '⚠️ Payments are temporarily unavailable. Please contact /support.',

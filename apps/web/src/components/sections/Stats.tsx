@@ -5,11 +5,16 @@ import { CountUp } from '@/components/shared/CountUp';
 import { useInView } from 'framer-motion';
 import { useRef } from 'react';
 
+// These headline figures are illustrative marketing. The two that describe the
+// product were harmonised with the published rules so the homepage can never
+// promise more than the rulebook allows: the profit split tops out at 90%
+// (rules page), and verification/funding is stated as within 24 hours
+// (how-it-works and Features), not 48.
 const stats = [
   { value: 500, suffix: '+', label: 'Active Traders' },
   { value: 5, prefix: '$', suffix: 'M+', label: 'Capital Deployed' },
-  { value: 92, suffix: '%', label: 'Payout Ratio' },
-  { value: 48, suffix: 'hr', label: 'Avg Payout Time' },
+  { value: 90, suffix: '%', label: 'Max Profit Split' },
+  { value: 24, suffix: 'hr', label: 'Avg Payout Time' },
 ];
 
 export function Stats() {

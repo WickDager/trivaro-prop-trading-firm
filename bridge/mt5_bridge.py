@@ -130,12 +130,10 @@ def load_config(path: str) -> dict:
         raise ValueError("endpoint_url and supabase_url must use the same HTTPS host")
 
     config["api_secret"] = os.environ.get("MT5_API_SECRET", "").strip()
-    config["supabase_service_role_key"] = os.environ.get(
-        "SUPABASE_SERVICE_ROLE_KEY", ""
-    ).strip()
-    if not config["api_secret"] or not config["supabase_service_role_key"]:
+    config["supabase_secret_key"] = os.environ.get("SUPABASE_SECRET_KEY", "").strip()
+    if not config["api_secret"] or not config["supabase_secret_key"]:
         raise ValueError(
-            "Set MT5_API_SECRET and SUPABASE_SERVICE_ROLE_KEY in the process environment"
+            "Set MT5_API_SECRET and SUPABASE_SECRET_KEY in the process environment"
         )
 
     if not config["accounts"]:
@@ -202,12 +200,11 @@ def build_session() -> requests.Session:
 class SupabaseRest:
     """Minimal Supabase REST client using requests."""
 
-    def __init__(self, url: str, service_role_key: str):
+    def __init__(self, url: str, secret_key: str):
         self.base = url.rstrip("/") + "/rest/v1"
         self.session = requests.Session()
         self.session.headers.update({
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
+            "apikey": secret_key,
             "Content-Type": "application/json",
         })
 
@@ -304,10 +301,10 @@ class SupabaseRest:
 def get_supabase(config: dict) -> Optional[SupabaseRest]:
     """Build a SupabaseRest client if credentials are configured."""
     url = config.get("supabase_url", "").strip()
-    key = config.get("supabase_service_role_key", "").strip()
+    key = config.get("supabase_secret_key", "").strip()
     if not url or not key:
         logger.warning(
-            "supabase_url or supabase_service_role_key not set — equity snapshots "
+            "supabase_url or supabase_secret_key not set — equity snapshots "
             "disabled (trade forwarding still runs)"
         )
         return None
@@ -393,6 +390,60 @@ def _naive_utc(dt: datetime) -> datetime:
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
+def pair_position_deals(pos_deals, deal_time) -> Optional[dict]:
+    """Turn the deals of one MT5 position into a single trade record.
+
+    A position can be opened and closed in several partial deals. Reading only
+    the last IN/OUT deal reported a fraction of the real profit and volume, so
+    every deal is summed and both prices are volume-weighted.
+
+    Returns None while the position is still only partially closed: reporting
+    it now and again when the remainder closes would double-count the profit.
+    """
+    in_deals = [d for d in pos_deals if d.entry == DEAL_ENTRY_IN]
+    out_deals = [d for d in pos_deals if d.entry == DEAL_ENTRY_OUT]
+
+    if not in_deals or not out_deals:
+        return None
+
+    entry_deal = min(in_deals, key=lambda d: d.time)
+    exit_deal = max(out_deals, key=lambda d: d.time)
+
+    entry_volume = sum(float(d.volume) for d in in_deals)
+    exit_volume = sum(float(d.volume) for d in out_deals)
+
+    if exit_volume < entry_volume - 1e-8:
+        return None
+
+    deal_type = "buy" if entry_deal.type == DEAL_TYPE_BUY else "sell"
+    open_price = (
+        sum(float(d.price) * float(d.volume) for d in in_deals) / entry_volume
+        if entry_volume > 0
+        else float(entry_deal.price)
+    )
+    close_price = (
+        sum(float(d.price) * float(d.volume) for d in out_deals) / exit_volume
+        if exit_volume > 0
+        else float(exit_deal.price)
+    )
+    # Deduplicate on the highest ticket so the last_ticket cursor keeps
+    # advancing monotonically across a multi-part close.
+    ticket = max(int(d.ticket) for d in out_deals)
+
+    return {
+        "ticket": ticket,
+        "position_id": int(exit_deal.position_id),
+        "symbol": entry_deal.symbol,
+        "type": deal_type,
+        "lots": round(entry_volume, 8),
+        "open_price": open_price,
+        "close_price": close_price,
+        "profit": sum(float(d.profit) for d in out_deals),
+        "open_time": deal_time(entry_deal.time),
+        "close_time": deal_time(exit_deal.time),
+    }
+
+
 def get_closed_positions(since: datetime, server_utc_offset_hours: float = 0.0) -> List[dict]:
     """
     Fetch positions closed since *since* for the currently-logged-in account.
@@ -430,31 +481,9 @@ def get_closed_positions(since: datetime, server_utc_offset_hours: float = 0.0) 
         if pos_deals is None:
             continue
 
-        entry_deal = None
-        exit_deal = None
-        for d in pos_deals:
-            if d.entry == DEAL_ENTRY_IN:
-                entry_deal = d
-            elif d.entry == DEAL_ENTRY_OUT:
-                exit_deal = d
-
-        if entry_deal is None or exit_deal is None:
-            continue
-
-        deal_type = "buy" if entry_deal.type == DEAL_TYPE_BUY else "sell"
-
-        closed.append({
-            "ticket": int(exit_deal.ticket),
-            "position_id": int(exit_deal.position_id),
-            "symbol": entry_deal.symbol,
-            "type": deal_type,
-            "lots": float(entry_deal.volume),
-            "open_price": float(entry_deal.price),
-            "close_price": float(exit_deal.price),
-            "profit": float(exit_deal.profit),
-            "open_time": deal_time(entry_deal.time),
-            "close_time": deal_time(exit_deal.time),
-        })
+        trade = pair_position_deals(pos_deals, deal_time)
+        if trade is not None:
+            closed.append(trade)
 
     return closed
 

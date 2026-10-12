@@ -46,6 +46,9 @@ export interface Challenge {
   trial_passed_at: string | null;
   /** Baseline for the current phase's profit target (migration 014). */
   phase_start_equity: number | null;
+  /** Human-in-the-loop credential lifecycle (migration 020):
+   *  none → pending (admin review) → provisioned → sent. */
+  credential_status: 'none' | 'pending' | 'provisioned' | 'sent';
 }
 
 export interface ChallengeWithMetrics extends Challenge {

@@ -64,7 +64,7 @@ export function CheckoutClient() {
       const data = (await res.json()) as { status?: string };
       if (data.status === 'paid') {
         setStatus('paid');
-        toast.success('Payment received — your challenge is being set up.');
+        toast.success('Payment received — your account is under review, details to follow by email within 24 hours.');
       } else if (data.status === 'expired') {
         setStatus('expired');
       }
@@ -93,6 +93,7 @@ export function CheckoutClient() {
         setError(rpcError.message);
         return;
       }
+      toast.info('Trial started — MT5 credentials are under review and will arrive by email within 24 hours.');
       router.push('/dashboard');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not start your trial');
@@ -232,7 +233,7 @@ export function CheckoutClient() {
               </div>
             </div>
             <p className="mt-3 text-center text-xs text-text-muted">
-              Equity challenges have no minimum trading days and a lower fee.
+              Every challenge follows the same rules — equity challenges simply carry a lower fee.
             </p>
 
             <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -363,7 +364,13 @@ export function CheckoutClient() {
                       Payment confirmed
                     </h2>
                     <p className="mt-2 text-sm text-text-secondary">
-                      Your challenge is being created. It will appear on your dashboard shortly.
+                      Your purchase is under review. Your MT5 account details
+                      will be sent to your email within 24 hours — nothing
+                      further is needed from you right now.
+                    </p>
+                    <p className="mt-2 text-xs text-text-muted">
+                      You can watch the status on your dashboard; our team
+                      verifies every order before issuing live accounts.
                     </p>
                     <Button className="mt-6 w-full" size="lg" onClick={() => router.push('/dashboard')}>
                       Go to dashboard

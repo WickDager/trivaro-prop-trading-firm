@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 with patch.dict(sys.modules, {"MetaTrader5": types.ModuleType("MetaTrader5")}):
-    from bridge.mt5_bridge import load_config
+    from bridge.mt5_bridge import SupabaseRest, load_config
 
 
 class BridgeConfigSecurityTests(unittest.TestCase):
@@ -35,18 +35,18 @@ class BridgeConfigSecurityTests(unittest.TestCase):
             os.environ,
             {
                 "MT5_API_SECRET": "environment-secret",
-                "SUPABASE_SERVICE_ROLE_KEY": "environment-key",
+                "SUPABASE_SECRET_KEY": "environment-key",
             },
         ):
             config = load_config(str(self.config_path))
 
         self.assertEqual(config["api_secret"], "environment-secret")
-        self.assertEqual(config["supabase_service_role_key"], "environment-key")
+        self.assertEqual(config["supabase_secret_key"], "environment-key")
 
     def test_missing_environment_secrets_fail_closed(self):
         with patch.dict(
             os.environ,
-            {"MT5_API_SECRET": "", "SUPABASE_SERVICE_ROLE_KEY": ""},
+            {"MT5_API_SECRET": "", "SUPABASE_SECRET_KEY": ""},
         ):
             with self.assertRaisesRegex(ValueError, "Set MT5_API_SECRET"):
                 load_config(str(self.config_path))
@@ -59,7 +59,7 @@ class BridgeConfigSecurityTests(unittest.TestCase):
             os.environ,
             {
                 "MT5_API_SECRET": "environment-secret",
-                "SUPABASE_SERVICE_ROLE_KEY": "environment-key",
+                "SUPABASE_SECRET_KEY": "environment-key",
             },
         ):
             with self.assertRaisesRegex(ValueError, "same HTTPS host"):
@@ -73,11 +73,19 @@ class BridgeConfigSecurityTests(unittest.TestCase):
             os.environ,
             {
                 "MT5_API_SECRET": "environment-secret",
-                "SUPABASE_SERVICE_ROLE_KEY": "environment-key",
+                "SUPABASE_SECRET_KEY": "environment-key",
             },
         ):
             with self.assertRaisesRegex(ValueError, "same HTTPS host"):
                 load_config(str(self.config_path))
+
+    def test_supabase_secret_is_not_sent_as_bearer_jwt(self):
+        client = SupabaseRest("https://project.supabase.co", "sb_secret_test")
+        try:
+            self.assertEqual(client.session.headers["apikey"], "sb_secret_test")
+            self.assertNotIn("Authorization", client.session.headers)
+        finally:
+            client.session.close()
 
 
 if __name__ == "__main__":

@@ -14,4 +14,7 @@ bridge/config.json
 bridge/bridge_state.json
 bridge/bridge.log
 *.tsbuildinfo
+# Python bytecode from the MT5 bridge (and its tests) on the VPS.
+__pycache__/
+*.pyc
 -w

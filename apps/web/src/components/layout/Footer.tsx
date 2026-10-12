@@ -5,6 +5,7 @@ const footerLinks = {
   Product: [
     { href: '/challenges', label: 'Challenges' },
     { href: '/how-it-works', label: 'How It Works' },
+    { href: '/rules', label: 'Challenge Rules' },
     { href: '/pricing', label: 'Pricing' },
   ],
   Company: [

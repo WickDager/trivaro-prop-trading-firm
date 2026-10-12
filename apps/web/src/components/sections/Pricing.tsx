@@ -79,7 +79,8 @@ export function Pricing() {
 
         <RevealOnScroll delay={0.2}>
           <p className="mt-8 text-center text-sm text-text-muted">
-            Pay with USDT (TRC20), USDC (Base), or BTC. Full refund if you don&apos;t pass Phase 1.
+            Pay with USDT on the TRC20 network (more networks are added once their verification is live).
+            Full refund if you never access your Phase 1 account, within 7 days.
           </p>
         </RevealOnScroll>
       </div>

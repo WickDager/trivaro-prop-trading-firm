@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GradientText } from '@/components/shared/GradientText';
 
@@ -53,8 +54,14 @@ export default function TermsPage() {
               <h2 className="mb-3 font-heading text-lg font-semibold text-white">2. Challenge Rules</h2>
               <p>
                 Participants must complete the trading challenge within the specified rules: profit targets,
-                maximum drawdown limits, and minimum trading days. Failure to comply may result in
-                disqualification. All trading is conducted in a simulated environment.
+                maximum drawdown limits, minimum trading days, and the conduct rules covering news trading,
+                Expert Advisors, high-frequency trading and copy trading. The full rulebook is published on
+                our{' '}
+                <Link href="/rules" className="text-teal-400 hover:underline">
+                  Challenge Rules
+                </Link>{' '}
+                page. Failure to comply may result in disqualification. All trading is conducted in a
+                simulated environment.
               </p>
             </section>
           </RevealOnScroll>
@@ -63,9 +70,10 @@ export default function TermsPage() {
             <section>
               <h2 className="mb-3 font-heading text-lg font-semibold text-white">3. Payments & Refunds</h2>
               <p>
-                All payments are processed in cryptocurrency. Challenge fees are non-refundable once the
-                challenge has been accessed. Refunds may be issued at management&apos;s discretion for
-                qualifying circumstances. See our Refund Policy for details.
+                All payments are processed in cryptocurrency and are non-refundable once you have accessed
+                your trading account. If you never access your Phase 1 account, you may request a full
+                refund within 7 days of purchase. Refunds are otherwise issued at management&apos;s
+                discretion for qualifying circumstances. See our Refund Policy for details.
               </p>
             </section>
           </RevealOnScroll>

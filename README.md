@@ -116,8 +116,8 @@ Copy `.env.example` to `.env.local` and fill in:
 ```bash
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
+SUPABASE_SECRET_KEY=<server-only-secret-key>
 
 # Telegram
 TELEGRAM_BOT_TOKEN=<bot-token>

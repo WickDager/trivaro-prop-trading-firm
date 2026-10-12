@@ -24,7 +24,7 @@ const features = [
   {
     icon: Wallet,
     title: 'Crypto Payments',
-    description: 'Pay with USDT, USDC, or BTC. Fast, secure, and borderless transactions via Telegram.',
+    description: 'Pay with USDT on the TRC20 network. Fast, secure and borderless — more networks are added as their verification goes live.',
   },
   {
     icon: Globe,
