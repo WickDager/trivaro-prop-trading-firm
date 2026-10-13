@@ -13,6 +13,16 @@ jobs:
           # API key system; no legacy anon key needed for a read-only ping.
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          curl -s "$SUPABASE_URL/rest/v1/orders?select=id&limit=1" \
-            -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
+          # Check the status code: a bare curl exits 0 even on HTTP 401/404,
+          # so this job used to report success while the project was paused
+          # or the key was wrong.
+          code=$(curl -sS -o /tmp/ping.json -w '%{http_code}' \
+            "$SUPABASE_URL/rest/v1/orders?select=id&limit=1" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" || echo 000)
+          if [ "$code" != "200" ]; then
+            echo "::error::Supabase ping failed with HTTP $code - the project may be paused or the key secret is wrong."
+            head -c 500 /tmp/ping.json
+            exit 1
+          fi
+          echo "Supabase ping OK (HTTP 200) - project is awake."
 
