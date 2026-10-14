@@ -21,23 +21,22 @@ function getSupabaseUrl(): string {
   return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321');
 }
 
-// Supabase renamed the browser-safe key from "anon key" to "publishable key".
-// Accept either variable NAME: a deployment (or a local .env.local) that still
-// holds the old name would otherwise fall through to "placeholder" and every
-// auth call would come back as `{"message":"Invalid API key"}`, which points at
-// the project instead of at the unset variable.
+// Supabase renamed the browser-safe key from "anon key" to "publishable key",
+// and disabled the legacy anon/service_role JWTs on 2026-10-07. Only the NEW
+// variable name and the NEW key format are accepted: reading
+// NEXT_PUBLIC_SUPABASE_ANON_KEY as a fallback is what let a legacy JWT keep
+// being sent after the rename, which surfaced as a 401
+// `{"message":"Legacy API keys are disabled"}` on every Auth call.
 function getSupabasePublishableKey(): string {
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!key) {
     // Deliberately not thrown: this also runs during prerender, where the CI
     // build has no environment at all, and a throw would fail the build.
     console.error(
       '[supabase] No public Supabase key is configured. Set ' +
-        'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or the legacy ' +
-        'NEXT_PUBLIC_SUPABASE_ANON_KEY). Until then every auth request will ' +
-        'fail with "Invalid API key".',
+        'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to the project publishable key ' +
+        '("sb_publishable_...") from Supabase Settings -> API Keys. Until then ' +
+        'every auth request will fail with "Invalid API key".',
     );
     return 'placeholder';
   }
@@ -45,7 +44,7 @@ function getSupabasePublishableKey(): string {
   const cleaned = stripBOM(key);
 
   // A NEXT_PUBLIC_* value is inlined into the browser bundle, so a secret key
-  // here would publish a key that bypasses row-level security. Fail the build
+  // here would publish a key that bypasses row-level security. Fail fast
   // rather than ship it.
   if (cleaned.startsWith(SECRET_KEY_PREFIX)) {
     throw new Error(
@@ -56,15 +55,26 @@ function getSupabasePublishableKey(): string {
     );
   }
 
-  // Reported rather than thrown: there is no publishable key to fall back to
-  // yet, so throwing would break local dev and builds without making sign-in
-  // work. A legacy key can never silently succeed — Supabase rejects it.
+  // A legacy anon JWT is specifically NOT tolerated. Supabase disabled the
+  // legacy anon/service_role keys, so every request carrying one comes back as
+  // a 401 "Legacy API keys are disabled" — an error that reads like a project
+  // configuration problem and gives no hint that the key in this variable is
+  // the stale one. Fail with the fix instead of sending it and letting the
+  // platform reject it.
   if (cleaned.startsWith(LEGACY_JWT_PREFIX)) {
-    console.error(
-      '[supabase] The configured public key is a legacy anon JWT, which ' +
-        'Supabase has disabled. Sign-in will fail with "Legacy API keys are ' +
-        `disabled" until this is replaced with an ${PUBLISHABLE_KEY_PREFIX}... ` +
-        'key from Settings -> API Keys.',
+    throw new Error(
+      'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY holds a legacy anon JWT ' +
+        '("eyJ..."). Supabase has disabled the legacy anon/service_role keys, ' +
+        'so every Auth request fails with "Legacy API keys are disabled". ' +
+        `Replace it with the project publishable key ("${PUBLISHABLE_KEY_PREFIX}...") ` +
+        'from Supabase Settings -> API Keys.',
+    );
+  }
+
+  if (!cleaned.startsWith(PUBLISHABLE_KEY_PREFIX)) {
+    throw new Error(
+      `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY must start with ` +
+        `"${PUBLISHABLE_KEY_PREFIX}" — it is not a valid Supabase publishable key.`,
     );
   }
 
