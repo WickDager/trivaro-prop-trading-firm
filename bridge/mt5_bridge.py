@@ -136,6 +136,17 @@ def load_config(path: str) -> dict:
             "Set MT5_API_SECRET and SUPABASE_SECRET_KEY in the process environment"
         )
 
+    # Only the new-format secret key works. Supabase disabled the legacy
+    # anon/service_role JWTs, so an "eyJ..." value would be rejected with
+    # "Legacy API keys are disabled" and every REST call would fail as a generic
+    # auth error. A "supabase_service_role_key" left in config.json can never
+    # satisfy this — the value is read from the environment only, above.
+    if not config["supabase_secret_key"].startswith("sb_secret_"):
+        raise ValueError(
+            "SUPABASE_SECRET_KEY must be an sb_secret_... key from Supabase "
+            "Settings -> API Keys. Legacy service_role keys are disabled."
+        )
+
     if not config["accounts"]:
         raise ValueError("accounts list is empty")
 
@@ -201,6 +212,14 @@ class SupabaseRest:
     """Minimal Supabase REST client using requests."""
 
     def __init__(self, url: str, secret_key: str):
+        # Guard the chokepoint as well as the loader: this is the object that
+        # actually puts the key on the wire, and Supabase rejects legacy keys at
+        # request time with a message that reads like a permissions problem.
+        if not secret_key.startswith("sb_secret_"):
+            raise ValueError(
+                "Supabase secret key must be an sb_secret_... key; legacy "
+                "service_role keys are disabled."
+            )
         self.base = url.rstrip("/") + "/rest/v1"
         self.session = requests.Session()
         self.session.headers.update({

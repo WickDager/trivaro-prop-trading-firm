@@ -1,18 +1,11 @@
 import { createServerClient as createSsrServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@/types';
-
-function stripBOM(s: string): string {
-  return s.replace(/^﻿/, '');
-}
-
-function getSupabaseUrl(): string {
-  return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321');
-}
-
-function getSupabasePublishableKey(): string {
-  return stripBOM(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder');
-}
+// Reuse the guarded getters from lib/supabase.ts instead of duplicating them.
+// The two copies had already drifted once — this file kept reading the legacy
+// NEXT_PUBLIC_SUPABASE_ANON_KEY name after the other one was updated — so the
+// key resolution (and its validation) now lives in exactly one place.
+import { getSupabaseUrl, getSupabasePublishableKey } from '@/lib/supabase';
 
 export async function createServerClient() {
   const cookieStore = await cookies();

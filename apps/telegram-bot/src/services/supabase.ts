@@ -9,6 +9,16 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('SUPABASE_URL and SUPABASE_SECRET_KEY must be set');
 }
 
+// Only the new-format secret key is accepted. Supabase disabled the legacy
+// anon/service_role JWTs, so an "eyJ..." value would fail every query — and
+// the handlers would report that to the user as a missing order.
+if (!supabaseKey.startsWith('sb_secret_')) {
+  throw new Error(
+    'SUPABASE_SECRET_KEY must be an sb_secret_... key from Supabase Settings -> ' +
+      'API Keys. Legacy service_role keys are disabled.',
+  );
+}
+
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function getOrderByPaymentId(paymentId: string) {
