@@ -4,6 +4,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
 import { GradientText } from '@/components/shared/GradientText';
+import { PaymentMethods } from '@/components/sections/PaymentMethods';
 import { Wallet, TrendingUp, DollarSign, Trophy } from 'lucide-react';
 
 const title = 'How It Works';
@@ -35,7 +36,7 @@ const steps = [
     icon: Wallet,
     title: '1. Choose & Pay',
     description:
-      'Select your challenge account size ($5K-$100K) and pay the one-time fee in USDT on the TRC20 network via our Telegram bot.',
+      'Select your challenge account size ($5K-$100K) and pay the one-time fee in crypto — USDT on Tron or Ethereum, USDC on Ethereum, or Bitcoin — via our Telegram bot.',
   },
   {
     icon: TrendingUp,
@@ -104,8 +105,12 @@ export default function HowItWorksPage() {
           })}
         </div>
 
+        <div className="-mx-4 mt-12 sm:-mx-6 lg:-mx-8">
+          <PaymentMethods />
+        </div>
+
         <RevealOnScroll delay={0.2}>
-          <div className="mt-20">
+          <div className="mt-8">
             <h2 className="mb-8 text-center font-heading text-2xl font-bold">
               Challenge <GradientText as="span">Rules</GradientText>
             </h2>

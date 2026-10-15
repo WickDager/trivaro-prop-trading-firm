@@ -6,6 +6,9 @@ interface PaymentMessageParams {
   amount: number;
   currency: string;
   network: string;
+  /** Display name of the chain, e.g. "Tron". Optional so an older caller keeps
+   *  compiling; the message falls back to Tron, which is what the bot quotes. */
+  chain?: string;
   walletAddress: string;
 }
 
@@ -35,7 +38,10 @@ export function paymentMessage(params: PaymentMessageParams): string {
     `⏱ Expires: 30 minutes`,
     ``,
     `⚠️ Send <b>exactly</b> ${amount} ${escapeHtml(params.currency)} on ${escapeHtml(params.network)} network.`,
-    `We only accept USDT on TRC20. Other currencies or networks will not be verified.`,
+    // Deliberately scoped to THIS order rather than "we only accept USDT on
+    // TRC20": the bot quotes Tron, but the platform also takes USDT/USDC on
+    // Ethereum and Bitcoin, so the blanket claim contradicted the website.
+    `This order is quoted in ${escapeHtml(params.currency)} on the ${escapeHtml(params.network)} network (${escapeHtml(params.chain ?? 'Tron')}). Sending from any other network cannot be matched to this order.`,
     ``,
     `After sending, your account will be automatically activated.`,
   ].join('\n');

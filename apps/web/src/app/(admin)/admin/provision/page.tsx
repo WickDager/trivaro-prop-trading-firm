@@ -19,10 +19,14 @@
 // ============================================================================
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase';
 import { toast } from '@/components/ui/toast';
 import { GradientText } from '@/components/shared/GradientText';
-import { Loader2, RefreshCw, Send, ShieldCheck } from 'lucide-react';
+import { AsyncButton, adminButtonClass } from '@/components/admin/Actions';
+import { FilterChips, StatCard, StatusPill } from '@/components/admin/Primitives';
+import { adminAction, credentialStatusLabel, credentialStatusTone, relativeTime, usdCompact } from '@/lib/admin';
+import { Eye, KeyRound, Loader2, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 
 interface PendingRow {
   id: string;
@@ -39,8 +43,6 @@ interface PendingRow {
 
 interface ProfileMap { [id: string]: { email?: string; first_name?: string; last_name?: string } }
 
-const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-
 export default function AdminProvisionPage() {
   const [rows, setRows] = useState<PendingRow[]>([]);
   const [profiles, setProfiles] = useState<ProfileMap>({});
@@ -49,6 +51,8 @@ export default function AdminProvisionPage() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** 'all' | 'pending' | 'provisioned' — the two stages of the same job. */
+  const [stage, setStage] = useState<'all' | 'pending' | 'provisioned'>('all');
 
   const load = useCallback(async () => {
     setError(null);
@@ -143,6 +147,24 @@ export default function AdminProvisionPage() {
     }
   }
 
+  /** Hand the saved credentials to the trader via the send-credentials edge
+   *  function, which also flips credential_status to 'sent'. */
+  async function deliver(challengeId: string) {
+    setBusy(challengeId);
+    try {
+      const result = await adminAction('credentials_send', { challenge_id: challengeId });
+      if (!result.ok) {
+        setMessage(result.hint ? `${result.error}: ${result.hint}` : result.error ?? 'Delivery failed.');
+        return;
+      }
+      toast.success('Credentials delivered to the trader');
+      setMessage(null);
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function requeue(challengeId: string) {
     setBusy(challengeId);
     try {
@@ -184,10 +206,43 @@ export default function AdminProvisionPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-text-muted">
-          <ShieldCheck className="h-4 w-4 text-teal-400" /> {rows.length} in queue
-        </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard
+          label="In queue"
+          value={rows.length}
+          hint="Awaiting credentials or delivery"
+          icon={ShieldCheck}
+          tone={rows.length ? 'warn' : 'success'}
+        />
+        <StatCard
+          label="Awaiting MT5 setup"
+          value={rows.filter((row) => row.credential_status === 'pending').length}
+          hint="Need a real broker login"
+          icon={KeyRound}
+          tone="info"
+        />
+        <StatCard
+          label="Ready to deliver"
+          value={rows.filter((row) => row.credential_status === 'provisioned').length}
+          hint="Saved, not yet sent to the trader"
+          icon={Send}
+          tone="success"
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <FilterChips
+          ariaLabel="Filter the provisioning queue"
+          options={['all', 'pending', 'provisioned'] as const}
+          value={stage}
+          onChange={setStage}
+          labels={{ all: 'Everything', pending: 'Needs MT5', provisioned: 'Ready to send' }}
+          counts={{
+            all: rows.length,
+            pending: rows.filter((row) => row.credential_status === 'pending').length,
+            provisioned: rows.filter((row) => row.credential_status === 'provisioned').length,
+          }}
+        />
         <button
           type="button"
           onClick={() => { setLoading(true); void load(); }}
@@ -202,25 +257,52 @@ export default function AdminProvisionPage() {
         <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-teal-400" /></div>
       ) : rows.length === 0 ? (
         <div className="rounded-xl border border-teal-500/10 bg-navy-700/60 p-8 text-center text-sm text-text-muted">
-          Nothing awaiting provisioning. Paid challenges appear here automatically.
+          Nothing awaiting provisioning. Authorise an account, or accept a payment, and it appears here.
         </div>
       ) : (
         <div className="space-y-3">
-          {rows.map((row) => (
+          {rows
+            .filter((row) => stage === 'all' || row.credential_status === stage)
+            .map((row) => (
             <div key={row.id} className="rounded-xl border border-teal-500/10 bg-navy-700/60 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="font-mono text-xs text-text-muted">id: {row.id.slice(0, 8)}</p>
-                  <p className="text-sm font-semibold">
-                    {row.is_trial ? 'Free Trial' : `${usd.format(row.starting_balance)} challenge`} ·
-                    status: {row.status} · credentials: {row.credential_status} · created{' '}
-                    {new Date(row.created_at).toLocaleDateString()}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold">
+                      {row.is_trial ? 'Free Trial' : `${usdCompact(row.starting_balance)} challenge`}
+                    </p>
+                    <StatusPill tone={credentialStatusTone(row.credential_status)}>
+                      {credentialStatusLabel(row.credential_status)}
+                    </StatusPill>
+                  </div>
+                  <p className="mt-0.5 font-mono text-[11px] text-text-muted">
+                    id: {row.id.slice(0, 8)} · status: {row.status} · opened {relativeTime(row.created_at)}
                   </p>
                   <p className="text-xs text-text-muted">
-                    Customer: {profiles[row.user_id ?? '']?.email ?? '(unknown)'}
+                    Customer:{' '}
+                    {row.user_id ? (
+                      <Link href={`/admin/traders/${row.user_id}`} className="hover:text-amber-300">
+                        {profiles[row.user_id]?.email ?? 'open profile'}
+                      </Link>
+                    ) : (
+                      '(unknown)'
+                    )}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                {/* `flex-wrap` + `shrink-0` buttons: four controls on one row
+                    used to overlap on narrow phones. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {row.credential_status === 'provisioned' && (
+                    <AsyncButton
+                      variant="success"
+                      icon={Send}
+                      title="Send the MT5 login to the trader via the Telegram bot"
+                      disabled={busy === row.id}
+                      onRun={() => deliver(row.id)}
+                    >
+                      Deliver
+                    </AsyncButton>
+                  )}
                   {row.credential_status === 'provisioned' && (
                     <button
                       type="button"
@@ -240,6 +322,10 @@ export default function AdminProvisionPage() {
                   >
                     {expanded === row.id ? 'Cancel' : 'Provision…'}
                   </button>
+                  <Link href={`/admin/challenges/${row.id}`} className={adminButtonClass('ghost', 'sm')}>
+                    <Eye className="h-3.5 w-3.5" />
+                    Monitor
+                  </Link>
                 </div>
               </div>
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Hero } from '@/components/sections/Hero';
 import { LiveTicker } from '@/components/sections/LiveTicker';
 import { Features } from '@/components/sections/Features';
+import { PaymentMethods } from '@/components/sections/PaymentMethods';
 import { Stats } from '@/components/sections/Stats';
 import { Pricing } from '@/components/sections/Pricing';
 import { Testimonials } from '@/components/sections/Testimonials';
@@ -19,6 +20,7 @@ export default function HomePage() {
       <Hero />
       <LiveTicker />
       <Features />
+      <PaymentMethods />
       <Stats />
       <Pricing />
       <Testimonials />

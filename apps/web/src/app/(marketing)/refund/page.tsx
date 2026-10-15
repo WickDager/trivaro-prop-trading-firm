@@ -55,7 +55,7 @@ export default function RefundPage() {
               <p>
                 If you fail Phase 1 without having accessed your trading account, you may request a full
                 refund within 7 days of purchase. Refunds are processed in the same cryptocurrency used
-                for the original payment.
+                for the original payment (USDT, USDC or BTC).
               </p>
             </section>
           </RevealOnScroll>

@@ -1,39 +1,109 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { createBrowserClient } from '@/lib/supabase';
 import { Logo } from '@/components/shared/Logo';
 import {
-  LayoutDashboard, Users, ShoppingCart, TrendingUp,
-  LogOut, ChevronLeft, Menu,
+  LayoutDashboard, Users, BadgeCheck, TrendingUp, LineChart, KeyRound,
+  CreditCard, Award, History, Settings, LogOut, Menu, ChevronLeft,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 
-const adminLinks = [
-  { href: '/admin', label: 'Overview', icon: LayoutDashboard },
-  { href: '/admin/users', label: 'Users', icon: Users },
-  { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
-  { href: '/admin/challenges', label: 'Challenges', icon: TrendingUp },
+type BadgeKey = 'verify' | 'provision' | 'orders';
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: BadgeKey;
+}
+
+/**
+ * The admin surface, grouped by the job being done rather than by table name:
+ * people (who is trading), accounts (what they are trading), money (what they
+ * paid) and system. Nav text is short so the sidebar never needs horizontal
+ * scrolling at 240px.
+ */
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: 'Overview',
+    items: [{ href: '/admin', label: 'Dashboard', icon: LayoutDashboard }],
+  },
+  {
+    label: 'People',
+    items: [
+      { href: '/admin/traders', label: 'Traders', icon: Users },
+      { href: '/admin/verify', label: 'Verification', icon: BadgeCheck, badge: 'verify' },
+    ],
+  },
+  {
+    label: 'Accounts',
+    items: [
+      { href: '/admin/challenges', label: 'Challenges', icon: TrendingUp },
+      { href: '/admin/trades', label: 'Trades', icon: LineChart },
+      { href: '/admin/provision', label: 'Provisioning', icon: KeyRound, badge: 'provision' },
+    ],
+  },
+  {
+    label: 'Money',
+    items: [
+      { href: '/admin/orders', label: 'Payments', icon: CreditCard, badge: 'orders' },
+      { href: '/admin/certificates', label: 'Certificates', icon: Award },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { href: '/admin/activity', label: 'Activity', icon: History },
+      { href: '/admin/settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ];
 
 function isLinkActive(pathname: string, href: string) {
   return href === '/admin' ? pathname === '/admin' : pathname === href || pathname.startsWith(`${href}/`);
 }
 
+// Shared height tokens so the fixed header, the fixed sidebar and the main
+// padding can never disagree — when they did, the sidebar sat under the header.
+const HEADER_H = 'min-h-12';
+const HEADER_OFFSET = 'calc(3rem + env(safe-area-inset-top, 0px))';
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [counts, setCounts] = useState<Partial<Record<BadgeKey, number>>>({});
 
-  // The admin layout stays mounted across navigations, so an open drawer must
-  // be closed explicitly or it covers the page the user just navigated to.
+  // The layout stays mounted across navigations, so an open drawer must be
+  // closed explicitly or it covers the page the user just navigated to.
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
+
+  // Small, cheap head-count queries that back the nav badges ("what needs me
+  // right now?"). Re-run on navigation so acting on a queue clears its badge.
+  const loadCounts = useCallback(async () => {
+    const supabase = createBrowserClient();
+    const [kyc, provisioning, orders] = await Promise.all([
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('kyc_status', 'pending'),
+      supabase.from('challenges').select('id', { count: 'exact', head: true }).in('credential_status', ['pending', 'provisioned']),
+      supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]);
+    setCounts({
+      verify: kyc.count ?? 0,
+      provision: provisioning.count ?? 0,
+      orders: orders.count ?? 0,
+    });
+  }, []);
+
+  useEffect(() => {
+    void loadCounts();
+  }, [loadCounts, pathname]);
 
   async function signOut() {
     const supabase = createBrowserClient();
@@ -41,109 +111,124 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     router.push('/login');
   }
 
+  function renderNav(onNavigate?: () => void) {
+    return (
+      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3" aria-label="Admin sections">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted/80">
+              {group.label}
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = isLinkActive(pathname, item.href);
+                const badge = item.badge ? counts[item.badge] : undefined;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={cn(
+                        'flex min-h-10 items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
+                        isActive
+                          ? 'bg-amber-500/10 text-amber-400'
+                          : 'text-text-secondary hover:bg-navy-700 hover:text-white',
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {badge !== undefined && badge > 0 && (
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+                            isActive ? 'bg-amber-500/20 text-amber-300' : 'bg-navy-600 text-text-secondary',
+                          )}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={signOut}
+          className="mt-auto flex min-h-10 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-muted transition-colors hover:bg-navy-700 hover:text-white"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </button>
+      </nav>
+    );
+  }
+
   return (
     <div className="min-h-dvh bg-navy-900">
-      <div className="pt-safe fixed top-0 z-40 flex min-h-12 w-full items-center justify-between border-b border-amber-500/20 bg-navy-800/95 px-4">
-        <div className="flex items-center gap-3">
-          <Link href="/admin" className="flex items-center gap-2">
-            <Logo className="h-8" />
-          </Link>
-          <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-amber-400">
-            Admin
-          </span>
+      <header
+        className={cn(
+          HEADER_H,
+          'pt-safe fixed inset-x-0 top-0 z-40 flex items-center gap-2 border-b border-amber-500/20 bg-navy-800/95 px-3 backdrop-blur sm:px-4',
+        )}
+      >
+        <div className="lg:hidden">
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger>
+              <Button variant="ghost" size="icon" aria-label="Open admin navigation">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" aria-label="Admin navigation" className="w-72 max-w-[85vw] p-0">
+              <p className="px-5 pb-2 pt-5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                Admin
+              </p>
+              {renderNav(() => setMenuOpen(false))}
+            </SheetContent>
+          </Sheet>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="lg:hidden">
-            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-              <SheetTrigger>
-                <Button variant="ghost" size="icon" aria-label="Open admin navigation">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" aria-label="Admin navigation">
-                <nav className="flex flex-col gap-2 pt-2">
-                  {adminLinks.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = isLinkActive(pathname, item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        aria-current={isActive ? 'page' : undefined}
-                        className={cn(
-                          'flex min-h-11 items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors active:bg-navy-600',
-                          isActive
-                            ? 'bg-amber-500/10 text-amber-400'
-                            : 'text-text-secondary hover:bg-navy-700 hover:text-white',
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                  <hr className="my-2 border-amber-500/10" />
-                  {/* Admins on a phone previously had no way to sign out. */}
-                  <button
-                    type="button"
-                    onClick={signOut}
-                    className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-3 text-sm text-text-muted transition-colors hover:bg-navy-700 hover:text-white active:bg-navy-600"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sign Out
-                  </button>
-                </nav>
-              </SheetContent>
-            </Sheet>
-          </div>
+
+        <Link href="/admin" className="flex min-w-0 items-center gap-2">
+          <Logo className="h-7 shrink-0" />
+          <span className="hidden truncate font-heading text-sm font-semibold sm:inline">Trivaro</span>
+        </Link>
+        {/* Hidden on the narrowest screens: with the menu button, logo and the
+            "Back to app" link on one 48px row, this badge is what pushed the
+            header into two overlapping lines. */}
+        <span className="hidden shrink-0 rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-400 sm:inline">
+          Admin
+        </span>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1">
           <Link
             href="/dashboard"
-            className="flex min-h-11 items-center gap-1 text-xs text-text-muted hover:text-text-secondary"
+            className="flex min-h-10 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs text-text-muted transition-colors hover:text-white sm:px-3"
           >
-            <ChevronLeft className="h-3 w-3" />
-            Back to App
+            <ChevronLeft className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Back to app</span>
+            <span className="sm:hidden">App</span>
           </Link>
         </div>
-      </div>
+      </header>
 
-      <aside className="fixed left-0 top-12 z-30 hidden h-[calc(100dvh-3rem)] w-56 flex-col border-r border-amber-500/10 bg-navy-800/30 lg:flex">
-        <nav className="flex flex-1 flex-col gap-1 p-3">
-          {adminLinks.map((item) => {
-            const Icon = item.icon;
-            const isActive = isLinkActive(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                  isActive
-                    ? 'bg-amber-500/10 text-amber-400'
-                    : 'text-text-secondary hover:bg-navy-700 hover:text-white',
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="border-t border-amber-500/10 p-3">
-          <button
-            type="button"
-            onClick={signOut}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-muted transition-colors hover:bg-navy-700 hover:text-white"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </button>
-        </div>
+      <aside
+        className="fixed left-0 z-30 hidden w-60 flex-col border-r border-amber-500/10 bg-navy-800/30 lg:flex"
+        style={{ top: HEADER_OFFSET, height: `calc(100dvh - ${HEADER_OFFSET})` }}
+      >
+        {renderNav()}
       </aside>
 
-      <main id="main" className="pt-[calc(3rem+env(safe-area-inset-top,0px))] lg:pl-56 lg:pt-12">
-        <div className="mx-auto max-w-6xl px-4 py-6 pb-safe sm:px-6 lg:px-8">
-          <div className="mb-6 h-0.5 w-full rounded-full bg-gradient-to-r from-amber-500/0 via-amber-500/50 to-amber-500/0" />
+      <main
+        id="main"
+        className="lg:pl-60"
+        style={{ paddingTop: HEADER_OFFSET }}
+      >
+        <div className="mx-auto max-w-[1400px] px-3 py-5 pb-safe sm:px-5 lg:px-6">
+          <div className="mb-5 h-0.5 w-full rounded-full bg-gradient-to-r from-amber-500/0 via-amber-500/50 to-amber-500/0" />
           {children}
         </div>
       </main>

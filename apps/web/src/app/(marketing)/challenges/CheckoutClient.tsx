@@ -10,7 +10,7 @@ import { GradientText } from '@/components/shared/GradientText';
 import { Button } from '@/components/ui/button';
 import { CryptoSelector } from '@/components/payment/CryptoSelector';
 import { TelegramRedirect } from '@/components/payment/TelegramRedirect';
-import { CHALLENGE_PRICING } from '@/lib/constants';
+import { CHALLENGE_PRICING, cryptoAssetKey, findCryptoAsset, type CryptoAsset } from '@/lib/constants';
 import { useSupabase } from '@/hooks/useSupabase';
 import { toast } from '@/components/ui/toast';
 import { Loader2, Check, Shield, Lock, Clock, Copy, Gift } from 'lucide-react';
@@ -29,11 +29,17 @@ interface CreatedOrder {
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
-/** Networks whose verifier is actually implemented. Offering a network the
- *  payment verifier cannot check would take the customer's money and never
- *  credit the order, so the others are shown as unavailable rather than
- *  silently accepted. */
-const VERIFIABLE_NETWORKS = new Set(['TRC20']);
+interface PaymentMethod {
+  currency: string;
+  network: string;
+  label: string;
+  ready: boolean;
+  reason: string | null;
+}
+
+/** Rendering fallback for an order whose asset cannot be resolved: USDT-TRC20,
+ *  the rail every order created before multi-asset checkout was on. */
+const FALLBACK_ASSET = findCryptoAsset('USDT', 'TRC20') as CryptoAsset;
 
 export function CheckoutClient() {
   const router = useRouter();
@@ -45,7 +51,12 @@ export function CheckoutClient() {
     CHALLENGE_PRICING.some((p) => p.accountSize === sizeParam) ? sizeParam : null,
   );
   const [challengeType, setChallengeType] = useState<ChallengeType>('equity');
-  const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<CryptoAsset | null>(null);
+  // Which rails the server says are payable right now (deposit address +
+  // verifier configured). Empty until it answers, which keeps every non-TRC20
+  // option disabled rather than optimistically enabled.
+  const [readyKeys, setReadyKeys] = useState<ReadonlySet<string>>(new Set());
+  const [methodReasons, setMethodReasons] = useState<Record<string, string | null>>({});
   const [order, setOrder] = useState<CreatedOrder | null>(null);
   const [status, setStatus] = useState<'idle' | 'creating' | 'pending' | 'paid' | 'expired'>('idle');
   const [startingTrial, setStartingTrial] = useState(false);
@@ -53,6 +64,11 @@ export function CheckoutClient() {
   const [copied, setCopied] = useState(false);
 
   const selectedPricing = CHALLENGE_PRICING.find((p) => p.accountSize === selectedSize);
+
+  /** The asset being paid with — the live selection, or the order's own network
+   *  so a re-render still labels the amount with the right symbol. */
+  const payAsset: CryptoAsset =
+    selectedAsset ?? (order ? findCryptoAsset('USDT', order.network) ?? FALLBACK_ASSET : FALLBACK_ASSET);
 
   // Poll the order so the page reflects payment without a manual refresh.
   const refreshStatus = useCallback(async (paymentId: string) => {
@@ -79,6 +95,36 @@ export function CheckoutClient() {
     return () => clearInterval(id);
   }, [order, status, refreshStatus]);
 
+  // Ask the server which crypto rails are payable. Availability cannot be
+  // decided in the browser: it depends on the verifier's API key and on the
+  // deposit address stored in app_config.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMethods() {
+      try {
+        const res = await fetch('/api/payments/methods', { cache: 'no-store' });
+        if (!res.ok) return;
+        const body = (await res.json()) as { methods?: PaymentMethod[] };
+        if (cancelled) return;
+        const ready = new Set<string>();
+        const reasons: Record<string, string | null> = {};
+        for (const method of body.methods ?? []) {
+          const key = cryptoAssetKey(method.currency, method.network);
+          if (method.ready) ready.add(key);
+          reasons[key] = method.reason;
+        }
+        setReadyKeys(ready);
+        setMethodReasons(reasons);
+      } catch {
+        // Offline or blocked: leave every rail except the default disabled.
+      }
+    }
+    void loadMethods();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function startTrial() {
     setStartingTrial(true);
     setError(null);
@@ -103,7 +149,7 @@ export function CheckoutClient() {
   }
 
   async function createOrder() {
-    if (!selectedSize || !selectedNetwork) return;
+    if (!selectedSize || !selectedAsset) return;
     setStatus('creating');
     setError(null);
     try {
@@ -118,7 +164,10 @@ export function CheckoutClient() {
       const { data, error: rpcError } = await supabase.rpc('create_order', {
         p_account_size: selectedSize,
         p_challenge_type: challengeType,
-        p_network: selectedNetwork,
+        p_network: selectedAsset.network,
+        // Without this the order is stored as USDT regardless of what was
+        // picked, and the verifier then rejects the currency/network pair.
+        p_crypto_currency: selectedAsset.currency,
       });
 
       if (rpcError) {
@@ -290,18 +339,15 @@ export function CheckoutClient() {
             >
               <div className="rounded-xl border border-teal-500/10 bg-navy-700/60 p-6 sm:p-8">
                 <h2 className="mb-6 font-heading text-xl font-semibold">Payment Method</h2>
-                <p className="mb-2 text-sm text-text-secondary">Select cryptocurrency</p>
+                <p className="mb-3 text-sm text-text-secondary">Select cryptocurrency</p>
                 <CryptoSelector
-                  enabledNetworks={VERIFIABLE_NETWORKS}
-                  selected={selectedNetwork ? `USDT-${selectedNetwork}` : undefined}
-                  onSelect={(opt) => setSelectedNetwork(opt.network)}
+                  readyKeys={readyKeys.size ? readyKeys : undefined}
+                  reasons={methodReasons}
+                  selected={selectedAsset ? cryptoAssetKey(selectedAsset.currency, selectedAsset.network) : undefined}
+                  onSelect={setSelectedAsset}
                 />
-                <p className="mt-3 text-xs text-text-muted">
-                  More networks are added once their payment verification is live — we would rather
-                  not accept a payment we cannot confirm.
-                </p>
 
-                {selectedNetwork && (
+                {selectedAsset && (
                   <div className="mt-6 space-y-4">
                     <div className="rounded-lg bg-navy-800 p-4">
                       <div className="flex justify-between text-sm">
@@ -314,6 +360,12 @@ export function CheckoutClient() {
                               ? selectedPricing?.balanceChallenge ?? 0
                               : selectedPricing?.equityChallenge ?? 0,
                           )}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex justify-between text-sm">
+                        <span className="text-text-secondary">Paying with</span>
+                        <span className="font-semibold">
+                          {selectedAsset.currency} on {selectedAsset.networkLabel}
                         </span>
                       </div>
                       <div className="mt-2 flex justify-between text-sm">
@@ -405,11 +457,12 @@ export function CheckoutClient() {
 
                     <div className="rounded-lg bg-navy-800 p-4 text-center">
                       <p className="text-xs text-text-muted">Send exactly</p>
-                      <p className="mt-1 font-mono text-2xl font-bold text-teal-400">
-                        {Number(order.crypto_amount).toFixed(2)} USDT
+                      <p className="mt-1 break-all font-mono text-2xl font-bold text-teal-400">
+                        {Number(order.crypto_amount).toFixed(payAsset.decimals)} {payAsset.currency}
                       </p>
                       <p className="mt-1 text-xs text-text-muted">
-                        on {order.network} — the exact amount identifies your payment
+                        on {order.network} — the exact amount identifies your payment. Sending a different amount or
+                        using another network means we cannot match it to your order.
                       </p>
                     </div>
 

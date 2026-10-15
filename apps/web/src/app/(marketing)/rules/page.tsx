@@ -293,7 +293,8 @@ export default function RulesPage() {
               <p className="text-sm text-text-secondary">
                 Funded traders keep up to 90% of their profits. Before the first payout we verify
                 your identity, and payouts are made in the same cryptocurrency used to purchase the
-                challenge. The profit split, not the fee, is what you take home.
+                challenge — USDT on Tron (TRC20) or Ethereum (ERC20), USDC on Ethereum, or Bitcoin.
+                The profit split, not the fee, is what you take home.
               </p>
             </div>
           </div>

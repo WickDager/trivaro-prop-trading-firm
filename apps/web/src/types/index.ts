@@ -61,6 +61,12 @@ type ChallengesRow = {
   trial_passed_at: string | null;
   /** Baseline for the CURRENT phase's profit target (migration 014). */
   phase_start_equity: number | null;
+  /** Human-in-the-loop MT5 provisioning lifecycle (migration 020):
+   *  none → pending → provisioned → sent. */
+  credential_status: string;
+  provisioned_by: string | null;
+  provisioned_at: string | null;
+  credential_sent_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -148,6 +154,44 @@ type NotificationLogRow = {
   created_at: string;
 }
 
+/**
+ * Migration 020: append-only record of every credential action an admin took.
+ * Never written (or read) by the customer-facing app.
+ */
+type AdminCredentialAuditRow = {
+  id: string;
+  challenge_id: string;
+  action: string;
+  credentials_payload: Record<string, unknown> | null;
+  acted_by: string | null;
+  acted_at: string;
+  note: string | null;
+};
+
+/** Migration 008/013. Written by proxy/login tracking, read by admins only.
+ *  Outcomes live in `status` ('success' | 'failed') with `error_message`. */
+type LoginHistoryRow = {
+  id: string;
+  user_id: string | null;
+  email: string | null;
+  provider: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+};
+
+/** Migration 017. Inbound Telegram update log — retried by the webhook. */
+type TelegramUpdatesRow = {
+  id: string;
+  update_id: number | null;
+  received_at: string;
+  processed_at: string | null;
+  status: string;
+  error: string | null;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -223,6 +267,10 @@ export interface Database {
           trial_ends_at?: string | null;
           trial_passed_at?: string | null;
           phase_start_equity?: number | null;
+          credential_status?: string;
+          provisioned_by?: string | null;
+          provisioned_at?: string | null;
+          credential_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -251,6 +299,10 @@ export interface Database {
           trial_ends_at?: string | null;
           trial_passed_at?: string | null;
           phase_start_equity?: number | null;
+          credential_status?: string;
+          provisioned_by?: string | null;
+          provisioned_at?: string | null;
+          credential_sent_at?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -411,6 +463,58 @@ export interface Database {
         };
         Relationships: [];
       };
+      admin_credential_audit: {
+        Row: AdminCredentialAuditRow;
+        Insert: {
+          id?: string;
+          challenge_id: string;
+          action: string;
+          credentials_payload?: Record<string, unknown> | null;
+          acted_by?: string | null;
+          acted_at?: string;
+          note?: string | null;
+        };
+        Update: {
+          note?: string | null;
+        };
+        Relationships: [];
+      };
+      login_history: {
+        Row: LoginHistoryRow;
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          email?: string | null;
+          provider?: string | null;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          status?: string;
+          error_message?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          status?: string;
+          error_message?: string | null;
+        };
+        Relationships: [];
+      };
+      telegram_updates: {
+        Row: TelegramUpdatesRow;
+        Insert: {
+          id?: string;
+          update_id?: number | null;
+          received_at?: string;
+          processed_at?: string | null;
+          status?: string;
+          error?: string | null;
+        };
+        Update: {
+          processed_at?: string | null;
+          status?: string;
+          error?: string | null;
+        };
+        Relationships: [];
+      };
       notification_log: {
         Row: NotificationLogRow;
         Insert: {
@@ -456,6 +560,27 @@ export interface Database {
           network: string;
           expires_at: string;
         }[];
+      };
+      /** The single credential writer (migration 020). Rejects non-admins
+       *  and service_role-less callers itself, so the admin API route mirrors
+       *  — but does not replace — the DB-side guard. */
+      set_challenge_credentials: {
+        Args: {
+          p_challenge_id: string;
+          p_account_number: string;
+          p_account_password: string;
+          p_server: string;
+          p_action?: string;
+          p_note?: string | null;
+        };
+        Returns: unknown;
+      };
+      set_challenge_credential_status_pending: {
+        Args: {
+          p_challenge_id: string;
+          p_note?: string | null;
+        };
+        Returns: unknown;
       };
       /** Grants the one-per-user free trial (migration 016). Idempotent. */
       start_trial: {

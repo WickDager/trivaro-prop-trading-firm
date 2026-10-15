@@ -70,7 +70,8 @@ export default function TermsPage() {
             <section>
               <h2 className="mb-3 font-heading text-lg font-semibold text-white">3. Payments & Refunds</h2>
               <p>
-                All payments are processed in cryptocurrency and are non-refundable once you have accessed
+                All payments are processed in cryptocurrency — USDT (TRC20 or ERC20), USDC (ERC20) or BTC —
+                and are non-refundable once you have accessed
                 your trading account. If you never access your Phase 1 account, you may request a full
                 refund within 7 days of purchase. Refunds are otherwise issued at management&apos;s
                 discretion for qualifying circumstances. See our Refund Policy for details.

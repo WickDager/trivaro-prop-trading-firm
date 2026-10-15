@@ -65,8 +65,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
     }
 
-    if (challenge.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Ownership check. Admins may also pull a copy for support requests — the
+    // certificate must be attributable to the trader either way, so everything
+    // below reads the OWNER's details, never the caller's.
+    const isOwner = challenge.user_id === user.id;
+    if (!isOwner) {
+      const { data: caller } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+      if ((caller as { role?: string } | null)?.role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    if (!challenge.user_id) {
+      return NextResponse.json({ error: 'This challenge has no owner to certify' }, { status: 409 });
     }
 
     // A certificate asserts that the trader passed. Without this check any
@@ -83,14 +98,14 @@ export async function POST(request: Request) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('first_name, last_name')
-      .eq('id', user.id)
+      .select('first_name, last_name, email')
+      .eq('id', challenge.user_id)
       .maybeSingle();
 
-    const p = profile as { first_name?: string | null; last_name?: string | null } | null;
+    const p = profile as { first_name?: string | null; last_name?: string | null; email?: string | null } | null;
     const traderName = p?.first_name
       ? [p.first_name, p.last_name].filter(Boolean).join(' ')
-      : user.email?.split('@')[0] || 'Trader';
+      : p?.email?.split('@')[0] || user.email?.split('@')[0] || 'Trader';
 
     // Certificates are persisted so the number is stable across downloads and
     // can actually be looked up by a verification page. RLS restricts insert to
@@ -108,12 +123,15 @@ export async function POST(request: Request) {
       certificate = existing as CertificateRow;
     } else {
       const payload = {
-        user_id: user.id,
+        // The certificate belongs to the trader, whether they or an admin
+        // triggered the download.
+        user_id: challenge.user_id,
         challenge_id: challengeId,
         certificate_number: mintCertificateNumber(),
         trader_name: traderName,
         account_size: accountSize,
         completion_date: new Date().toISOString(),
+        issued_by: isOwner ? null : user.id,
       };
 
       // Retry once in the (unlikely) event of a certificate-number collision.
