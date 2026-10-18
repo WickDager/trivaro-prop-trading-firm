@@ -34,8 +34,47 @@ const ipRequests = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
 
+/**
+ * Hard cap on the limiter's memory. The map is keyed by a client-supplied
+ * header, so without a cap anyone could grow it by sending a new
+ * `x-forwarded-for` on every request — a slow memory-exhaustion DoS on the
+ * process that also serves every other route.
+ */
+const MAX_RATE_ENTRIES = 10_000;
+
+/**
+ * Best-effort client address.
+ *
+ * Vercel/Cloudflare overwrite `x-forwarded-for`, so its FIRST entry is the
+ * real client. When the app is exposed directly (no trusted proxy) this header
+ * is spoofable and the limiter becomes advisory — it is a throttling guard, not
+ * an authentication control, which is why the secret check below is the thing
+ * that actually decides whether an update is processed.
+ */
+function clientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const first = forwarded?.split(',')[0]?.trim();
+  if (first) return first;
+  return request.headers.get('x-real-ip') ?? 'unknown';
+}
+
+function pruneExpired(now: number) {
+  if (ipRequests.size < MAX_RATE_ENTRIES) return;
+  for (const [key, entry] of ipRequests) {
+    if (now > entry.resetAt) ipRequests.delete(key);
+  }
+  // Still full: every entry is live. Drop the table rather than let the
+  // process run out of memory. This resets counters, which is a far smaller
+  // problem than an OOM loop on a payment-serving process.
+  if (ipRequests.size >= MAX_RATE_ENTRIES) {
+    console.error('webhook rate limiter hit its entry cap — resetting counters');
+    ipRequests.clear();
+  }
+}
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
+  pruneExpired(now);
   const entry = ipRequests.get(ip);
   if (!entry || now > entry.resetAt) {
     ipRequests.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
@@ -47,7 +86,7 @@ function checkRateLimit(ip: string): boolean {
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get('x-forwarded-for') ?? 'unknown';
+    const ip = clientIp(request);
     if (!checkRateLimit(ip)) {
       return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
     }

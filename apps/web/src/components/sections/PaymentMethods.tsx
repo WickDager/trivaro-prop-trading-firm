@@ -9,8 +9,8 @@ import { Bitcoin, CircleDollarSign, Coins, ShieldCheck } from 'lucide-react';
  *
  * Every accepted asset is listed here because the marketing pages used to
  * describe only "USDT on the TRC20 network", while the platform also takes
- * USDT/USDC on Ethereum and Bitcoin. The list is generated from
- * SUPPORTED_CRYPTO so it can never drift from what the checkout offers.
+ * USDC on Ethereum and Bitcoin. The list is generated from SUPPORTED_CRYPTO so
+ * it can never drift from what the checkout offers.
  */
 const ICONS: Record<string, typeof Coins> = {
   BTC: Bitcoin,
@@ -27,8 +27,8 @@ export function PaymentMethods() {
               Crypto <GradientText as="span">Payments &amp; Payouts</GradientText>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-text-secondary">
-              Pay in stablecoins over Tron or Ethereum, or in Bitcoin. Payouts come back in the same
-              cryptocurrency you bought with, at the same profit split.
+              Pay in USDT on Tron, USDC on Ethereum, or in Bitcoin — three rails, each verified on-chain.
+              Payouts come back in the same cryptocurrency you bought with, at the same profit split.
             </p>
           </div>
         </RevealOnScroll>
@@ -73,9 +73,9 @@ export function PaymentMethods() {
           <div className="mx-auto mt-10 flex max-w-3xl flex-col items-center gap-3 rounded-xl border border-teal-500/10 bg-navy-700/40 p-6 text-center">
             <ShieldCheck className="h-6 w-6 text-teal-400" />
             <p className="text-sm text-text-secondary">
-              Each network is switched on at checkout as soon as its on-chain verification is live — we would
-              rather hold an option back than accept a payment we cannot confirm. Your deposit address and the
-              exact amount are shown at payment time, and the order confirms itself automatically.
+              Every rail is checked on-chain before your account is provisioned. Your deposit address and the exact
+              amount are shown at payment time, the order confirms itself, and a rail only appears at checkout once
+              its verification is live — we would rather hold an option back than take a payment we cannot confirm.
             </p>
             <p className="flex items-center gap-2 text-xs text-text-muted">
               <CircleDollarSign className="h-3.5 w-3.5" />

@@ -36,7 +36,7 @@ const steps = [
     icon: Wallet,
     title: '1. Choose & Pay',
     description:
-      'Select your challenge account size ($5K-$100K) and pay the one-time fee in crypto — USDT on Tron or Ethereum, USDC on Ethereum, or Bitcoin — via our Telegram bot.',
+      'Select your challenge account size ($5K-$100K) and pay the one-time fee in crypto — USDT on Tron, USDC on Ethereum, or Bitcoin — on our own checkout, no exchange account needed.',
   },
   {
     icon: TrendingUp,

@@ -108,6 +108,20 @@ export async function handleStart(chatId: number, payload: string, username?: st
     return;
   }
 
+  // This handler can only invoice USDT on Tron: the amount offset below is in
+  // cents and the address it resolves is the TRC20 wallet. An order bought in
+  // USDC or BTC would otherwise be re-quoted as USDT here — the customer would
+  // be told to send an amount and an asset the verifier is not looking for.
+  const rail = `${order.crypto_currency ?? 'USDT'}-${order.network ?? 'TRC20'}`.toUpperCase();
+  if (rail !== 'USDT-TRC20') {
+    await sendMessage(
+      chatId,
+      `ℹ️ This order is quoted in <b>${rail.replace('-', ' on ')}</b>. Open it on the website to pay — Telegram invoices are USDT on Tron only.`,
+      'HTML',
+    );
+    return;
+  }
+
   const walletAddress = await resolveDepositAddress();
   if (!walletAddress) {
     // The old `|| ''` fallback wrote an empty string to orders.wallet_address

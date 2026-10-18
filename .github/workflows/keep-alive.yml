@@ -2,6 +2,9 @@ name: Keep Supabase Alive
 on:
   schedule:
     - cron: '0 0 */3 * *'
+permissions:
+  contents: read
+
 jobs:
   ping:
     runs-on: ubuntu-latest

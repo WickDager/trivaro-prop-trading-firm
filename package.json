@@ -7,7 +7,8 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,json,css,md}\"",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "test:e2e": "node scripts/e2e/web-e2e.mjs"
   },
   "workspaces": [
     "apps/*",

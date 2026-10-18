@@ -16,11 +16,12 @@ import {
   CalendarDays,
   Server,
   UserCheck,
+  Gift,
 } from 'lucide-react';
 
 const title = 'Challenge Rules';
 const description =
-  'The full Trivaro rulebook: profit target, daily and maximum drawdown, minimum trading days, news trading, Expert Advisors and bots, HFT, copy trading, hedging, weekend holding and prohibited practices.';
+  'The full Trivaro rulebook: free 14-day practice trial, profit target, daily and maximum drawdown, minimum trading days, news trading, Expert Advisors and bots, HFT, copy trading, hedging, weekend holding and prohibited practices.';
 
 export const metadata: Metadata = {
   title,
@@ -119,6 +120,12 @@ const permissions: Permission[] = [
   },
 ];
 
+const trialFacts = [
+  { label: '$10,000 practice account', detail: 'The same rules and the same dashboard as a paid evaluation.' },
+  { label: '14 days', detail: 'The account stops accepting trades when the period ends.' },
+  { label: 'One per trader', detail: 'A trial never advances to funding, is never paid out, and is graded on the same risk engine.' },
+];
+
 const prohibited = [
   'High-frequency trading, latency arbitrage and tick-scalping strategies.',
   'Exploiting pricing errors, gaps or inaccuracies in the simulated market data or order fills.',
@@ -135,12 +142,20 @@ const faqs = [
     a: 'Yes. News trading is allowed at every stage and we do not restrict execution around high-impact releases. The only exception is bracketing a release with simultaneous buy-stop and sell-stop orders, which is treated as a prohibited practice.',
   },
   {
+    q: 'What is the free trial, and does it lead to a funded account?',
+    a: 'It is a $10,000 practice account for 14 days, available once per trader and graded by the same risk engine as a paid challenge. Hitting the 8% target marks the trial as passed and invites you to buy a paid challenge, but it never advances a phase, never creates a funded account and never pays out. A paid challenge starts as a separate account with its own balance.',
+  },
+  {
+    q: 'Which cryptocurrencies can I pay with?',
+    a: 'Checkout takes USDT on Tron (TRC20), USDC on Ethereum (ERC20) and Bitcoin on-chain. Each order shows an exact amount and a deposit address, is verified on-chain against that address, and must be paid within the 30-minute window shown at checkout; an order that expires can simply be recreated.',
+  },
+  {
     q: 'Are Expert Advisors and bots allowed?',
     a: 'Yes, with conditions: the software must be yours or licensed to you, its settings must be customised, and it must not rely on latency, price-feed or simulated-fill exploits. It also must not breach the HFT rule.',
   },
   {
     q: 'Is there a time limit to complete the challenge?',
-    a: 'No. Paid evaluations have no deadline, so you can trade at your own pace as long as you meet the minimum of 5 trading days and stay within the drawdown limits.',
+    a: 'No. Paid evaluations have no deadline, so you can trade at your own pace as long as you meet the minimum of 5 trading days and stay within the drawdown limits. The free trial is the exception: it runs for 14 days.',
   },
   {
     q: 'Is there a consistency rule?',
@@ -215,6 +230,43 @@ export default function RulesPage() {
           </div>
         </RevealOnScroll>
 
+        {/* ---- Free trial ------------------------------------------------- */}
+        <RevealOnScroll delay={0.075}>
+          <div className="mt-20 rounded-xl border border-green-400/20 bg-green-500/5 p-6 sm:p-8">
+            <h2 className="mb-3 flex items-center gap-2 font-heading text-2xl font-bold">
+              <Gift className="h-5 w-5 text-green-400" />
+              Free Trial
+            </h2>
+            <p className="text-sm text-text-secondary">
+              Before you pay, you can trade a <span className="text-white">$10,000 practice
+              account for 14 days</span>. It runs on the same risk engine, the same rules and the
+              same dashboard as a paid evaluation — so the 8% target, 3% daily loss, 5% trailing
+              loss and 5-day minimum below apply from your first trade.
+            </p>
+            <ul className="mt-5 grid gap-3 sm:grid-cols-3">
+              {trialFacts.map((fact) => (
+                <li
+                  key={fact.label}
+                  className="rounded-lg border border-teal-500/10 bg-navy-700/60 p-4"
+                >
+                  <p className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" />
+                    {fact.label}
+                  </p>
+                  <p className="mt-2 text-xs text-text-secondary">{fact.detail}</p>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-5 text-sm text-text-secondary">
+              Reaching the profit target marks the trial as passed and offers you a paid
+              challenge; it does not advance a phase, create a funded account or qualify for a
+              profit split. A paid challenge is a separate account with its own starting balance,
+              so the trial result does not carry over. When the 14 days end, the trial account is
+              closed as expired. Only one trial is allowed per trader.
+            </p>
+          </div>
+        </RevealOnScroll>
+
         {/* ---- Trading permissions --------------------------------------- */}
         <RevealOnScroll delay={0.1}>
           <div className="mt-20">
@@ -283,9 +335,10 @@ export default function RulesPage() {
               <h2 className="mb-3 font-heading text-lg font-semibold">How rules are enforced</h2>
               <p className="text-sm text-text-secondary">
                 Drawdown, profit target and minimum trading days are checked automatically on every
-                closed trade, and a breach fails the account in real time. Conduct rules are
-                reviewed by the risk team; where a breach is confirmed, we may decline to pass a
-                phase or to release a payout. You will always be told the rule that was applied.
+                closed trade, and a breach fails the account in real time. Trials are also expired
+                automatically once their 14 days are up. Conduct rules are reviewed by the risk
+                team; where a breach is confirmed, we may decline to pass a phase or to release a
+                payout. You will always be told the rule that was applied.
               </p>
             </div>
             <div className="rounded-xl border border-teal-500/10 bg-navy-700/60 p-6">
@@ -293,8 +346,8 @@ export default function RulesPage() {
               <p className="text-sm text-text-secondary">
                 Funded traders keep up to 90% of their profits. Before the first payout we verify
                 your identity, and payouts are made in the same cryptocurrency used to purchase the
-                challenge — USDT on Tron (TRC20) or Ethereum (ERC20), USDC on Ethereum, or Bitcoin.
-                The profit split, not the fee, is what you take home.
+                challenge — USDT on Tron (TRC20), USDC on Ethereum (ERC20) or Bitcoin. The
+                profit split, not the fee, is what you take home.
               </p>
             </div>
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
@@ -10,7 +10,13 @@ import { GradientText } from '@/components/shared/GradientText';
 import { Button } from '@/components/ui/button';
 import { CryptoSelector } from '@/components/payment/CryptoSelector';
 import { TelegramRedirect } from '@/components/payment/TelegramRedirect';
-import { CHALLENGE_PRICING, cryptoAssetKey, findCryptoAsset, type CryptoAsset } from '@/lib/constants';
+import {
+  CHALLENGE_PRICING,
+  SUPPORTED_CRYPTO,
+  cryptoAssetKey,
+  findCryptoAsset,
+  type CryptoAsset,
+} from '@/lib/constants';
 import { useSupabase } from '@/hooks/useSupabase';
 import { toast } from '@/components/ui/toast';
 import { Loader2, Check, Shield, Lock, Clock, Copy, Gift } from 'lucide-react';
@@ -35,6 +41,9 @@ interface PaymentMethod {
   label: string;
   ready: boolean;
   reason: string | null;
+  /** 1 for the stablecoin rails; the live BTC/USD quote otherwise. */
+  rate?: number | null;
+  minConfirmations?: number;
 }
 
 /** Rendering fallback for an order whose asset cannot be resolved: USDT-TRC20,
@@ -43,13 +52,9 @@ const FALLBACK_ASSET = findCryptoAsset('USDT', 'TRC20') as CryptoAsset;
 
 export function CheckoutClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { supabase } = useSupabase();
 
-  const sizeParam = Number(searchParams.get('size'));
-  const [selectedSize, setSelectedSize] = useState<number | null>(
-    CHALLENGE_PRICING.some((p) => p.accountSize === sizeParam) ? sizeParam : null,
-  );
+  const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [challengeType, setChallengeType] = useState<ChallengeType>('equity');
   const [selectedAsset, setSelectedAsset] = useState<CryptoAsset | null>(null);
   // Which rails the server says are payable right now (deposit address +
@@ -57,6 +62,10 @@ export function CheckoutClient() {
   // option disabled rather than optimistically enabled.
   const [readyKeys, setReadyKeys] = useState<ReadonlySet<string>>(new Set());
   const [methodReasons, setMethodReasons] = useState<Record<string, string | null>>({});
+  // Published quote per rail, used to show a BTC estimate before an order
+  // exists. Never used to compute the amount the customer is asked to send —
+  // that comes from the order, which the server priced.
+  const [methodRates, setMethodRates] = useState<Record<string, number | null>>({});
   const [order, setOrder] = useState<CreatedOrder | null>(null);
   const [status, setStatus] = useState<'idle' | 'creating' | 'pending' | 'paid' | 'expired'>('idle');
   const [startingTrial, setStartingTrial] = useState(false);
@@ -65,10 +74,41 @@ export function CheckoutClient() {
 
   const selectedPricing = CHALLENGE_PRICING.find((p) => p.accountSize === selectedSize);
 
-  /** The asset being paid with — the live selection, or the order's own network
-   *  so a re-render still labels the amount with the right symbol. */
-  const payAsset: CryptoAsset =
-    selectedAsset ?? (order ? findCryptoAsset('USDT', order.network) ?? FALLBACK_ASSET : FALLBACK_ASSET);
+  /**
+   * The asset being paid with: the live selection, which is also the rail the
+   * order was created for.
+   *
+   * This used to fall back to `findCryptoAsset('USDT', order.network)`, which
+   * is wrong for every order that is not USDT — a USDC-ERC20 or BTC order had
+   * no match for "USDT on that network" and was labelled `USDT` with the wrong
+   * number of decimals while the customer was counting out the amount.
+   */
+  const payAsset: CryptoAsset = selectedAsset ?? FALLBACK_ASSET;
+
+  const selectedKey = selectedAsset
+    ? cryptoAssetKey(selectedAsset.currency, selectedAsset.network)
+    : null;
+  const selectedRate = selectedKey ? methodRates[selectedKey] ?? null : null;
+  const selectedPrice = selectedPricing
+    ? challengeType === 'balance'
+      ? selectedPricing.balanceChallenge
+      : selectedPricing.equityChallenge
+    : null;
+  /** Indicative only — the payable amount is the one the order carries. */
+  const estimate =
+    selectedAsset?.rateConfigKey && selectedRate && selectedPrice
+      ? selectedPrice / selectedRate
+      : null;
+
+  // `?size=25000` deep-links straight to an account size. Applied after mount
+  // from window.location rather than with `useSearchParams()`: that hook opts
+  // the page out of static prerendering, which shipped production a /challenges
+  // whose HTML was only a spinner — no <h1>, no pricing, nothing to paint or
+  // index until the client bundle landed.
+  useEffect(() => {
+    const sizeParam = Number(new URLSearchParams(window.location.search).get('size'));
+    if (CHALLENGE_PRICING.some((p) => p.accountSize === sizeParam)) setSelectedSize(sizeParam);
+  }, []);
 
   // Poll the order so the page reflects payment without a manual refresh.
   const refreshStatus = useCallback(async (paymentId: string) => {
@@ -100,28 +140,63 @@ export function CheckoutClient() {
   // deposit address stored in app_config.
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+
     async function loadMethods() {
+      let body: { methods?: PaymentMethod[] } | null = null;
       try {
         const res = await fetch('/api/payments/methods', { cache: 'no-store' });
-        if (!res.ok) return;
-        const body = (await res.json()) as { methods?: PaymentMethod[] };
-        if (cancelled) return;
-        const ready = new Set<string>();
-        const reasons: Record<string, string | null> = {};
-        for (const method of body.methods ?? []) {
-          const key = cryptoAssetKey(method.currency, method.network);
-          if (method.ready) ready.add(key);
-          reasons[key] = method.reason;
-        }
-        setReadyKeys(ready);
-        setMethodReasons(reasons);
+        if (res.ok) body = (await res.json()) as { methods?: PaymentMethod[] };
       } catch {
-        // Offline or blocked: leave every rail except the default disabled.
+        // Retried below; a single failure must not decide what is offered.
+      }
+      if (cancelled) return;
+
+      if (!body?.methods) {
+        attempts += 1;
+        if (attempts < 3) {
+          timer = setTimeout(() => void loadMethods(), attempts * 1_500);
+          return;
+        }
+        // Say so out loud. Failing quietly left every rail showing "Coming
+        // soon", which reads as "we do not accept that" — a live Bitcoin rail
+        // looked unavailable because of one dropped request.
+        const unavailable: Record<string, string | null> = {};
+        for (const asset of SUPPORTED_CRYPTO) {
+          unavailable[cryptoAssetKey(asset.currency, asset.network)] =
+            'Could not check availability — reload the page';
+        }
+        setMethodReasons(unavailable);
+        return;
+      }
+
+      const ready = new Set<string>();
+      const reasons: Record<string, string | null> = {};
+      const rates: Record<string, number | null> = {};
+      let awaitingPrice = false;
+      for (const method of body.methods) {
+        const key = cryptoAssetKey(method.currency, method.network);
+        if (method.ready) ready.add(key);
+        reasons[key] = method.reason;
+        rates[key] = typeof method.rate === 'number' ? method.rate : null;
+        if (!method.ready && /price feed/i.test(method.reason ?? '')) awaitingPrice = true;
+      }
+      setReadyKeys(ready);
+      setMethodReasons(reasons);
+      setMethodRates(rates);
+
+      // The Bitcoin rail fetches its price on the read that finds it stale, so
+      // one retry is usually enough to turn it on without a reload.
+      if (awaitingPrice && timer === null) {
+        timer = setTimeout(() => void loadMethods(), 2_500);
       }
     }
+
     void loadMethods();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
@@ -148,42 +223,50 @@ export function CheckoutClient() {
     }
   }
 
+  /**
+   * Order creation goes through the server, not straight to the RPC.
+   *
+   * A BTC invoice has to be converted from a USD rate, and the rate may only
+   * come from the server (see /api/orders/create). The endpoint also tells us
+   * when the price feed is unavailable, which is a "try again shortly" — never
+   * a made-up amount.
+   */
   async function createOrder() {
     if (!selectedSize || !selectedAsset) return;
     setStatus('creating');
     setError(null);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const res = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({
+          account_size: selectedSize,
+          challenge_type: challengeType,
+          network: selectedAsset.network,
+          currency: selectedAsset.currency,
+        }),
+      });
+
+      if (res.status === 401) {
         // Preserve the selection through the login round-trip.
         const next = `/challenges?size=${selectedSize}`;
         router.push(`/login?redirect=${encodeURIComponent(next)}`);
-        return;
-      }
-
-      const { data, error: rpcError } = await supabase.rpc('create_order', {
-        p_account_size: selectedSize,
-        p_challenge_type: challengeType,
-        p_network: selectedAsset.network,
-        // Without this the order is stored as USDT regardless of what was
-        // picked, and the verifier then rejects the currency/network pair.
-        p_crypto_currency: selectedAsset.currency,
-      });
-
-      if (rpcError) {
-        setError(rpcError.message);
         setStatus('idle');
         return;
       }
 
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row) {
-        setError('Could not create your order. Please try again.');
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; order?: CreatedOrder; detail?: string }
+        | null;
+
+      if (!res.ok || !body?.ok || !body.order) {
+        setError(body?.detail ?? 'Could not create your order. Please try again.');
         setStatus('idle');
         return;
       }
 
-      setOrder(row as CreatedOrder);
+      setOrder(body.order);
       setStatus('pending');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not create your order');
@@ -362,12 +445,23 @@ export function CheckoutClient() {
                           )}
                         </span>
                       </div>
-                      <div className="mt-2 flex justify-between text-sm">
+                      <div className="mt-2 flex justify-between gap-3 text-sm">
                         <span className="text-text-secondary">Paying with</span>
-                        <span className="font-semibold">
+                        <span className="text-right font-semibold">
                           {selectedAsset.currency} on {selectedAsset.networkLabel}
                         </span>
                       </div>
+                      {estimate !== null && (
+                        <div className="mt-2 flex justify-between gap-3 text-sm">
+                          <span className="text-text-secondary">Amount</span>
+                          <span className="text-right font-semibold">
+                            ≈ {estimate.toFixed(selectedAsset.decimals)} {selectedAsset.currency}
+                            <span className="ml-1 font-normal text-text-muted">
+                              @ {usd.format(selectedRate ?? 0)}/BTC
+                            </span>
+                          </span>
+                        </div>
+                      )}
                       <div className="mt-2 flex justify-between text-sm">
                         <span className="text-text-secondary">Payout</span>
                         <span className="font-semibold text-green-400">Up to 90%</span>
@@ -467,7 +561,19 @@ export function CheckoutClient() {
                     </div>
 
                     <div className="mt-4 flex justify-center rounded-lg bg-white p-3">
-                      <QRCodeSVG value={order.wallet_address} size={160} level="M" />
+                      {/* For Bitcoin the QR is a BIP21 URI WITH the amount, so a
+                          wallet prefills the exact satoshi figure the order
+                          needs — the amount is what identifies the payment,
+                          and a BTC confirmation is too slow to guess at. */}
+                      <QRCodeSVG
+                        value={
+                          order.network === 'BTC'
+                            ? `bitcoin:${order.wallet_address}?amount=${Number(order.crypto_amount).toFixed(8)}`
+                            : order.wallet_address
+                        }
+                        size={160}
+                        level="M"
+                      />
                     </div>
 
                     <div className="mt-4 rounded-lg bg-navy-800 p-4">
@@ -498,6 +604,12 @@ export function CheckoutClient() {
                     <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs text-text-muted">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Waiting for your payment — this page updates automatically
+                    </p>
+                    <p className="mt-2 text-center text-[11px] text-text-muted">
+                      Credited after {payAsset.minConfirmations} confirmations
+                      {order.network === 'BTC'
+                        ? ' — a Bitcoin block takes about 10 minutes, so expect up to 30.'
+                        : ' (a few seconds to a minute).'}
                     </p>
                   </>
                 )}

@@ -15,6 +15,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient, createServiceClient } from '@/lib/supabase';
+import { isSameOrigin } from '@/lib/security';
 import type { NextRequest } from 'next/server';
 
 const UUID_RE = /^[0-9a-fA-F-]{36}$/;
@@ -39,7 +40,11 @@ const WALLET_KEYS: Record<string, RegExp> = {
   hot_wallet_trc20: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
   hot_wallet_erc20: /^0x[0-9a-fA-F]{40}$/,
   hot_wallet_btc: /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/,
+  // Pinned token contracts. The TRC20 slot is USDT and the ERC20 slot is
+  // Circle's USDC: the verifier matches these addresses exactly, so editing one
+  // changes which token counts as a payment on that rail.
   usdt_trc20_contract: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
+  usdc_erc20_contract: /^0x[0-9a-fA-F]{40}$/,
 };
 
 interface Body {
@@ -58,16 +63,7 @@ function jsonError(error: string, status: number, hint?: string) {
 export async function POST(request: NextRequest) {
   // Same-origin guard: this route authenticates with cookies, so a foreign
   // page must not be able to drive it even with a valid session in the browser.
-  const origin = request.headers.get('origin');
-  if (origin) {
-    try {
-      if (new URL(origin).host !== request.headers.get('host')) {
-        return jsonError('forbidden_origin', 403);
-      }
-    } catch {
-      return jsonError('forbidden_origin', 403);
-    }
-  }
+  if (!isSameOrigin(request)) return jsonError('forbidden_origin', 403);
 
   const { supabase, supabaseResponse } = createServerClient(request);
   const { data: { user } } = await supabase.auth.getUser();

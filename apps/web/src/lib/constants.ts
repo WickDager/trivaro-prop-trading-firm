@@ -86,18 +86,31 @@ export const CRYPTO_OFFSET_MAX = 1.00;
 /**
  * Every cryptocurrency the platform can take, in ONE place.
  *
- * This used to be three drifting lists: the marketing copy said "USDT on
- * TRC20", the selector offered USDC-on-Base (which `create_order` rejects
- * outright — the RPC only allows TRC20/ERC20/BTC), and the checkout hard-coded
- * `USDT-${network}` as the selected key. Marketing copy, the selector, the
- * checkout and the admin reports all read from here now.
+ * Marketing copy, the selector, the checkout, /api/payments/methods and the
+ * admin reports all read from here, so a rail cannot be advertised on one page
+ * and rejected by the order pipeline on another.
  *
- * `quotable` mirrors what `create_order` can actually price:
- *   * TRC20 / ERC20 are stablecoin rails, so the USD fee is the on-chain amount
- *     (1 token ≈ $1) — the same assumption `verify-payment` makes.
- *   * BTC has no FX quote in the order pipeline, so its USD-filled
- *     `crypto_amount` would be nonsense in satoshis. Listed as accepted but not
- *     quoteable rather than silently accepting an unpayable order.
+ * The three rails, and why exactly these three:
+ *
+ *   USDT  TRC20   Tether on Tron. Cheap and fast; the verifier reads TronGrid
+ *                 with no API key.
+ *   USDC  ERC20   Circle's USDC on Ethereum. USDT is deliberately NOT offered
+ *                 on Ethereum (one token per chain keeps "which contract did
+ *                 the customer send?" answerable); USDC on Tron is not offered
+ *                 either because Circle discontinued USDC-on-Tron in 2024, so
+ *                 an address holding "USDC" there is not Circle's token.
+ *   BTC   BTC     Native Bitcoin, priced from a stored FX rate (see
+ *                 RATE_MAX_AGE_MINUTES) because the fee is quoted in USD.
+ *
+ * NO rail needs an API key to be verified, and that is deliberate: a missing
+ * secret must never silently disable a way to pay. USDT-TRC20 is read from
+ * TronGrid, BTC from mempool.space / Blockstream Esplora, and USDC from
+ * Etherscan-shaped explorers that answer without a key (Routescan, then
+ * Blockscout). `verifierKey` therefore documents a PREFERRED key, not a
+ * required one: an `ETHERSCAN_API_KEY` is used first for Ethereum when it is
+ * set, and every rail declares null so /api/payments/methods cannot hide a rail
+ * for want of a secret (ERC20 only ever needed one because Etherscan retired
+ * its keyless v1 endpoint on 2025-08-15).
  */
 export interface CryptoAsset {
   currency: 'USDT' | 'USDC' | 'BTC';
@@ -107,19 +120,31 @@ export interface CryptoAsset {
   /** Short network badge, e.g. "TRC20". */
   networkLabel: string;
   chain: string;
-  /** Populated only on the stablecoin rails — there is no BTC quote. */
+  /** Decimal places the invoice amount is displayed and verified with. */
   decimals: number;
   fee: string;
   speed: string;
+  /** Confirmed blocks/hashes the verifier requires before crediting. */
+  minConfirmations: number;
   /** Whether `create_order` can price this pair today. */
   quotable: boolean;
-  /** Env var the verifier needs for this network, or null when its public API
-   *  needs no key. Kept in the catalogue so /api/payments/methods can report
-   *  readiness from one source. */
+  /** Env var the verifier PREFERS for this network, or null when its public API
+   *  needs no key at all. Kept in the catalogue so /api/payments/methods can
+   *  report readiness from one source; no rail sets it today, because every
+   *  verifier has a keyless path. */
   verifierKey: string | null;
+  /** `app_config` key that must hold a fresh USD price before this rail can be
+   *  quoted (BTC only), or null for the ~1:1 stablecoin rails. */
+  rateConfigKey: string | null;
   /** `app_config` key holding the deposit address. */
   walletConfigKey: string;
 }
+
+/** A BTC quote older than this is refused: the customer would pay an amount
+ *  that no longer matches the USD price the order was placed at. Two hours is
+ *  far longer than the 30-minute payment window and short enough that a dead
+ *  price feed fails closed instead of quoting last week's rate. */
+export const RATE_MAX_AGE_MINUTES = 120;
 
 export const SUPPORTED_CRYPTO: CryptoAsset[] = [
   {
@@ -129,24 +154,13 @@ export const SUPPORTED_CRYPTO: CryptoAsset[] = [
     networkLabel: 'TRC20',
     chain: 'Tron',
     decimals: 2,
-    fee: '~$0 network fee',
+    fee: 'Tron network fee',
     speed: '~1 minute',
+    minConfirmations: 2,
     quotable: true,
     verifierKey: null,
+    rateConfigKey: null,
     walletConfigKey: 'hot_wallet_trc20',
-  },
-  {
-    currency: 'USDT',
-    network: 'ERC20',
-    label: 'USDT (Ethereum)',
-    networkLabel: 'ERC20',
-    chain: 'Ethereum',
-    decimals: 2,
-    fee: 'ETH gas applies',
-    speed: '~5 minutes',
-    quotable: true,
-    verifierKey: 'ETHERSCAN_API_KEY',
-    walletConfigKey: 'hot_wallet_erc20',
   },
   {
     currency: 'USDC',
@@ -155,10 +169,14 @@ export const SUPPORTED_CRYPTO: CryptoAsset[] = [
     networkLabel: 'ERC20',
     chain: 'Ethereum',
     decimals: 2,
-    fee: 'ETH gas applies',
-    speed: '~5 minutes',
+    fee: 'Ethereum gas fee',
+    speed: '~2 minutes',
+    minConfirmations: 2,
     quotable: true,
-    verifierKey: 'ETHERSCAN_API_KEY',
+    // Keyless: the verifier reads Etherscan-shaped mirrors (Routescan, then
+    // Blockscout) and only prefers Etherscan v2 if a key happens to be set.
+    verifierKey: null,
+    rateConfigKey: null,
     walletConfigKey: 'hot_wallet_erc20',
   },
   {
@@ -168,13 +186,26 @@ export const SUPPORTED_CRYPTO: CryptoAsset[] = [
     networkLabel: 'BTC',
     chain: 'Bitcoin',
     decimals: 8,
-    fee: 'network fee applies',
-    speed: '~30 minutes',
-    quotable: false,
-    verifierKey: 'BLOCKCYPHER_TOKEN',
+    fee: 'Bitcoin network fee',
+    speed: '~30-60 minutes',
+    minConfirmations: 2,
+    quotable: true,
+    verifierKey: null,
+    rateConfigKey: 'btc_usd_rate',
     walletConfigKey: 'hot_wallet_btc',
   },
 ];
+
+/**
+ * Satoshi spread of the USD "identifying offset".
+ *
+ * Every order adds a random $0.01–$0.99 so the exact amount identifies the
+ * payment on chain. That offset converts to satoshi differently per rate — at
+ * $100k/BTC, $0.01 is 10 satoshi — so the BTC tolerance must stay well under
+ * the smallest possible gap between two orders, or one payment could match two
+ * pending orders. See BTC_AMOUNT_TOLERANCE_SAT in the verifier.
+ */
+export const BTC_TOLERANCE_SATS = 5;
 
 export const NETWORK_INFO: Record<string, { name: string; fee: string; speed: string }> = Object.fromEntries(
   SUPPORTED_CRYPTO.map((asset) => [asset.network, { name: `${asset.networkLabel} (${asset.chain})`, fee: asset.fee, speed: asset.speed }]),
@@ -192,5 +223,6 @@ export function findCryptoAsset(currency: string, network: string): CryptoAsset 
 }
 
 /** The pairs we can quote and verify today, used as the offline fallback when
- *  /api/payments/methods has not answered yet. */
-export const DEFAULT_ENABLED_NETWORKS = new Set(['TRC20']);
+ *  /api/payments/methods has not answered yet. BTC is deliberately absent: it
+ *  cannot be quoted without a fresh stored rate, which only the API can report. */
+export const DEFAULT_ENABLED_NETWORKS = new Set(['TRC20', 'ERC20']);

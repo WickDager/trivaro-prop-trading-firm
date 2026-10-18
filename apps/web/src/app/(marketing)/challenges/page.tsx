@@ -11,7 +11,7 @@ import { CheckoutClient } from './CheckoutClient';
 export const metadata: Metadata = {
   title: 'Challenges',
   description:
-    'Compare Trivaro challenge accounts, start a free 14-day practice trial, or buy a funded evaluation with crypto — USDT on Tron or Ethereum, USDC on Ethereum, or Bitcoin. Profit target, drawdown limits and fees for every account size.',
+    'Compare Trivaro challenge accounts, start a free 14-day practice trial, or buy a funded evaluation with crypto — USDT on Tron, USDC on Ethereum, or Bitcoin. Profit target, drawdown limits and fees for every account size.',
   alternates: { canonical: '/challenges' },
   openGraph: {
     type: 'website',

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
 import { createServiceClient } from '@/lib/supabase';
+import { PRIVATE_NO_STORE } from '@/lib/security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,13 @@ const lastCheck = new Map<string, number>();
 const CHECK_INTERVAL_MS = 20_000;
 const MAX_ENTRIES = 5_000;
 
+/** Every answer here describes the caller's own order, so no shared cache may
+ *  hold it — and a stale `pending` read behind a CDN would keep a paid customer
+ *  polling. */
+function json(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, { status, headers: PRIVATE_NO_STORE });
+}
+
 function shouldCheck(paymentId: string): boolean {
   const now = Date.now();
   if (lastCheck.size > MAX_ENTRIES) {
@@ -43,13 +51,13 @@ export async function GET(request: Request) {
     const paymentId = searchParams.get('payment_id');
 
     if (!paymentId) {
-      return NextResponse.json({ error: 'payment_id is required' }, { status: 400 });
+      return json({ error: 'payment_id is required' }, 400);
     }
 
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return json({ error: 'Unauthorized' }, 401);
     }
 
     // RLS already restricts this to the caller's rows; the explicit user_id
@@ -63,14 +71,14 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('Order lookup failed:', error.message);
-      return NextResponse.json({ error: 'lookup_failed' }, { status: 500 });
+      return json({ error: 'lookup_failed' }, 500);
     }
     if (!order) {
-      return NextResponse.json({ error: 'not_found' }, { status: 404 });
+      return json({ error: 'not_found' }, 404);
     }
 
     if (order.status !== 'pending') {
-      return NextResponse.json({ status: order.status });
+      return json({ status: order.status });
     }
 
     // Expiry is a server-side decision — never trust the client clock.
@@ -85,11 +93,11 @@ export async function GET(request: Request) {
       if (expireError) {
         console.error('Order expiry failed:', expireError.message);
       }
-      return NextResponse.json({ status: 'expired' });
+      return json({ status: 'expired' });
     }
 
     if (!shouldCheck(paymentId)) {
-      return NextResponse.json({ status: order.status });
+      return json({ status: order.status });
     }
 
     // Ask the verifier to look on-chain. A verifier outage must not change the
@@ -98,7 +106,7 @@ export async function GET(request: Request) {
     const key = process.env.EDGE_FUNCTION_API_KEY;
     if (!url || !key) {
       console.error('verify-payment not configured: missing SUPABASE_URL or EDGE_FUNCTION_API_KEY');
-      return NextResponse.json({ status: order.status });
+      return json({ status: order.status });
     }
 
     try {
@@ -128,9 +136,9 @@ export async function GET(request: Request) {
       .eq('id', order.id)
       .maybeSingle();
 
-    return NextResponse.json({ status: updated?.status ?? order.status });
+    return json({ status: updated?.status ?? order.status });
   } catch (e) {
     console.error('Order status error:', e instanceof Error ? e.message : e);
-    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
+    return json({ error: 'internal_error' }, 500);
   }
 }

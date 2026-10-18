@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { RevealOnScroll } from '@/components/animations/RevealOnScroll';
@@ -17,22 +17,32 @@ import {
 type AuthMode = 'signin' | 'signup';
 type AuthStep = 'idle' | 'loading' | 'magic_link_sent' | 'check_email';
 
+/**
+ * Where to land after signing in, taken from `?redirect=`.
+ *
+ * Read from `window.location` instead of `useSearchParams()` on purpose: that
+ * hook opts the whole page out of static prerendering, so production shipped a
+ * `/login` whose HTML was a spinner — no <h1>, no form, nothing for a crawler
+ * or a slow connection to paint — until the client bundle arrived. window is
+ * only touched at push time (after mount), so the prerender stays complete.
+ *
+ * Only same-origin absolute paths — `?redirect=https://evil.example` would
+ * otherwise turn the trusted login page into an open redirect. http(s) URL
+ * parsers normalise a backslash to a forward slash, so `/\evil.com` resolves to
+ * the protocol-relative `//evil.com`; reject it alongside `//`. Mirrors
+ * safeNext() in app/auth/callback/route.ts.
+ */
+function redirectTarget(): string {
+  if (typeof window === 'undefined') return '/dashboard';
+  const param = new URLSearchParams(window.location.search).get('redirect');
+  if (!param || !param.startsWith('/') || param.startsWith('//') || param.startsWith('/\\')) {
+    return '/dashboard';
+  }
+  return param;
+}
+
 function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  // Only same-origin absolute paths — `?redirect=https://evil.example` would
-  // otherwise turn the trusted login page into an open redirect.
-  const redirectParam = searchParams.get('redirect');
-  // http(s) URL parsers normalise a backslash to a forward slash, so
-  // `/\evil.com` resolves to the protocol-relative `//evil.com`. Reject it
-  // alongside `//`, or this page becomes an open redirect. Mirrors safeNext()
-  // in app/auth/callback/route.ts.
-  const isSafeRedirect =
-    !!redirectParam &&
-    redirectParam.startsWith('/') &&
-    !redirectParam.startsWith('//') &&
-    !redirectParam.startsWith('/\\');
-  const redirect = isSafeRedirect ? redirectParam : '/dashboard';
   const { supabase, signInWithGoogle } = useSupabase();
 
   const [mode, setMode] = useState<AuthMode>('signin');
@@ -49,7 +59,7 @@ function LoginForm() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data, error }) => {
       if (data.user) {
-        router.push(redirect);
+        router.push(redirectTarget());
       } else if (error && error.message.includes('ISO-8859')) {
         // Clear corrupted localStorage from previous broken deployments
         Object.keys(localStorage).forEach((key) => {
@@ -66,7 +76,7 @@ function LoginForm() {
         window.location.reload();
       }
     });
-  }, [supabase, router, redirect]);
+  }, [supabase, router]);
 
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -93,7 +103,7 @@ function LoginForm() {
         setStep('idle');
         return;
       }
-      router.push(redirect);
+      router.push(redirectTarget());
     } else {
       try {
         // Use direct fetch to avoid Supabase client header encoding issue in Turbopack builds

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { renderToStream } from '@react-pdf/renderer';
 import { createServerClient } from '@/lib/supabase-server';
 import { createServiceClient } from '@/lib/supabase';
+import { isSameOrigin } from '@/lib/security';
 import { CertificatePDF } from '@/components/certificates/CertificatePDF';
 
 export const runtime = 'nodejs';
@@ -27,6 +28,12 @@ function mintCertificateNumber(): string {
 // cross-site by an <img> tag or a link prefetcher — which, with sameSite=Lax
 // session cookies, mints a certificate from a victim's session.
 export async function POST(request: Request) {
+  // The handler persists a certificate row, so refuse a foreign Origin even
+  // though SameSite=Lax already keeps the session cookie off cross-site POSTs.
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();

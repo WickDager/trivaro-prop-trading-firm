@@ -25,7 +25,7 @@ const features = [
     icon: Wallet,
     title: 'Crypto Payments',
     description:
-      'Pay in USDT on Tron or Ethereum, USDC on Ethereum, or Bitcoin. Fast, secure and borderless — each network is enabled at checkout as its on-chain verification goes live.',
+      'Pay in USDT on Tron, USDC on Ethereum, or Bitcoin. Fast, secure and borderless — each payment is verified on-chain, and payouts come back in the same asset.',
   },
   {
     icon: Globe,

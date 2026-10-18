@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { createBrowserClient } from '@/lib/supabase';
+import { useSupabase } from '@/hooks/useSupabase';
 import { Logo } from '@/components/shared/Logo';
 import {
   LayoutDashboard, Users, BadgeCheck, TrendingUp, LineChart, KeyRound,
@@ -75,7 +75,7 @@ const HEADER_OFFSET = 'calc(3rem + env(safe-area-inset-top, 0px))';
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { supabase, signOut } = useSupabase();
   const [menuOpen, setMenuOpen] = useState(false);
   const [counts, setCounts] = useState<Partial<Record<BadgeKey, number>>>({});
 
@@ -88,7 +88,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   // Small, cheap head-count queries that back the nav badges ("what needs me
   // right now?"). Re-run on navigation so acting on a queue clears its badge.
   const loadCounts = useCallback(async () => {
-    const supabase = createBrowserClient();
     const [kyc, provisioning, orders] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('kyc_status', 'pending'),
       supabase.from('challenges').select('id', { count: 'exact', head: true }).in('credential_status', ['pending', 'provisioned']),
@@ -99,17 +98,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       provision: provisioning.count ?? 0,
       orders: orders.count ?? 0,
     });
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     void loadCounts();
   }, [loadCounts, pathname]);
-
-  async function signOut() {
-    const supabase = createBrowserClient();
-    await supabase.auth.signOut();
-    router.push('/login');
-  }
 
   function renderNav(onNavigate?: () => void) {
     return (

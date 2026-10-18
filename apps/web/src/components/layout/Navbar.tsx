@@ -47,7 +47,13 @@ export function Navbar() {
       )}
     >
       <nav className="pt-safe mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Trivaro home">
+        {/* `min-h-11` gives the logo a 44px tap target without enlarging the
+            artwork itself — the mark alone is only 32px tall on phones. */}
+        <Link
+          href="/"
+          className="flex min-h-11 shrink-0 items-center gap-2"
+          aria-label="Trivaro home"
+        >
           <Logo className="h-8 sm:h-10" />
         </Link>
 
@@ -71,20 +77,28 @@ export function Navbar() {
           </div>
           {user ? (
             <div className="flex items-center gap-2">
-              <Link href="/dashboard" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+              {/* The `sm` size is 40px tall on phones; the header is the most-tapped
+                  row on a handset, so the header buttons keep the 44px minimum. */}
+              <Link
+                href="/dashboard"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'min-h-11')}
+              >
                 Dashboard
               </Link>
               <button
                 type="button"
                 onClick={signOut}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-11')}
               >
                 Sign Out
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link href="/login" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+              <Link
+                href="/login"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'min-h-11')}
+              >
                 Sign In
               </Link>
               <Link

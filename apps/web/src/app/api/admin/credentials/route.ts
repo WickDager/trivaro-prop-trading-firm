@@ -24,6 +24,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { isSameOrigin } from '@/lib/security';
 import type { NextRequest } from 'next/server';
 
 // TV- prefix + 6-10 unambiguous chars (matches set_challenge_credentials).
@@ -40,6 +41,13 @@ interface CredentialBody {
 }
 
 export async function POST(request: NextRequest) {
+  // Same-origin guard (defence in depth on top of SameSite=Lax cookies): this
+  // handler sets real MT5 credentials, so a foreign page must never be able to
+  // drive it with a signed-in admin's browser.
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: 'forbidden_origin' }, { status: 403 });
+  }
+
   // Auth: cookie session, admin-only.
   const { supabase, supabaseResponse } = createServerClient(request);
   let response = supabaseResponse;

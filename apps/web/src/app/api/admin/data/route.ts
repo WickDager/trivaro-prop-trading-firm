@@ -170,9 +170,13 @@ export async function GET(request: NextRequest) {
           services: {
             supabase_secret_key: configured('SUPABASE_SECRET_KEY'),
             edge_function_api_key: configured('EDGE_FUNCTION_API_KEY'),
+            // Every rail verifies keyless (TronGrid, mempool.space and the
+            // Etherscan-shaped mirrors used for USDC), so no missing secret can
+            // block a payment. Etherscan is still reported because the verifier
+            // prefers it when it is set.
             trongrid_api_key: configured('TRONGRID_API_KEY'),
             etherscan_api_key: configured('ETHERSCAN_API_KEY'),
-            blockcypher_token: configured('BLOCKCYPHER_TOKEN'),
+            cron_secret: configured('CRON_SECRET'),
             resend_api_key: configured('RESEND_API_KEY'),
             telegram_bot_token: configured('TELEGRAM_BOT_TOKEN'),
           },

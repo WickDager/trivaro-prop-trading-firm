@@ -39,8 +39,8 @@ export function paymentMessage(params: PaymentMessageParams): string {
     ``,
     `⚠️ Send <b>exactly</b> ${amount} ${escapeHtml(params.currency)} on ${escapeHtml(params.network)} network.`,
     // Deliberately scoped to THIS order rather than "we only accept USDT on
-    // TRC20": the bot quotes Tron, but the platform also takes USDT/USDC on
-    // Ethereum and Bitcoin, so the blanket claim contradicted the website.
+    // TRC20": the bot quotes Tron, but the platform also takes USDC on Ethereum
+    // and Bitcoin on the website, so the blanket claim contradicted it.
     `This order is quoted in ${escapeHtml(params.currency)} on the ${escapeHtml(params.network)} network (${escapeHtml(params.chain ?? 'Tron')}). Sending from any other network cannot be matched to this order.`,
     ``,
     `After sending, your account will be automatically activated.`,

@@ -38,8 +38,8 @@ const WALLET_FIELDS: { key: string; label: string; hint: string; pattern: RegExp
   },
   {
     key: 'hot_wallet_erc20',
-    label: 'USDT/USDC deposit address — Ethereum (ERC20)',
-    hint: '0x followed by 40 hex characters.',
+    label: 'USDC deposit address — Ethereum (ERC20)',
+    hint: '0x followed by 40 hex characters. The verifier scans this address for the USDC contract below and nothing else.',
     pattern: /^0x[0-9a-fA-F]{40}$/,
     placeholder: '0x…',
   },
@@ -57,23 +57,44 @@ const WALLET_FIELDS: { key: string; label: string; hint: string; pattern: RegExp
     pattern: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
     placeholder: 'T…',
   },
+  {
+    key: 'usdc_erc20_contract',
+    label: 'USDC ERC20 contract the verifier pins',
+    hint: "Circle's USDC on Ethereum. Only change it if Circle redeploys the token.",
+    pattern: /^0x[0-9a-fA-F]{40}$/,
+    placeholder: '0x…',
+  },
 ];
 
 const SERVICE_LABELS: Record<string, string> = {
   supabase_secret_key: 'Supabase secret key (admin writes)',
   edge_function_api_key: 'Edge function key (verifiers, delivery)',
-  trongrid_api_key: 'TronGrid API key (TRC20 verification)',
-  blockcypher_token: 'BlockCypher token (BTC verification)',
-  etherscan_api_key: 'Etherscan API key (ERC20 verification)',
+  trongrid_api_key: 'TronGrid API key (optional — raises TRC20 rate limits)',
+  etherscan_api_key: 'Etherscan API key (optional — preferred over the keyless USDC mirrors)',
+  cron_secret: 'Cron secret (guards the BTC price refresh)',
   resend_api_key: 'Resend API key (rule emails)',
   telegram_bot_token: 'Telegram bot token (delivery + bot)',
 };
+
+/** One rail as reported by /api/payments/methods. */
+interface RailStatus {
+  currency: string;
+  network: string;
+  label: string;
+  ready: boolean;
+  reason: string | null;
+  rate: number | null;
+}
 
 export default function AdminSettingsPage() {
   const [data, setData] = useState<SystemPayload | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // What checkout is actually offering right now, and why anything is missing.
+  // Read from the same endpoint the storefront uses, so this can never claim a
+  // rail is live while the storefront hides it.
+  const [rails, setRails] = useState<RailStatus[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,6 +120,21 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/payments/methods', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { methods?: RailStatus[] } | null) => {
+        if (!cancelled && body?.methods) setRails(body.methods);
+      })
+      .catch(() => {
+        // Leave the card in its loading state; the rest of the page still works.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function save(key: string) {
     const value = (draft[key] ?? '').trim();
@@ -171,6 +207,34 @@ export default function AdminSettingsPage() {
           tone="neutral"
         />
       </div>
+
+      <SectionCard
+        title="Payment rails"
+        description="Live checkout availability, computed exactly as the storefront computes it (deposit address + verifier + price feed)."
+      >
+        {rails === null ? (
+          <p className="py-4 text-center text-xs text-text-muted">Checking…</p>
+        ) : (
+          <ul className="space-y-2">
+            {rails.map((rail) => (
+              <li
+                key={`${rail.currency}-${rail.network}`}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-navy-800/50 px-3 py-2"
+              >
+                <span className="min-w-0">
+                  <span className="text-xs font-medium">{rail.label}</span>
+                  {rail.rate && rail.currency === 'BTC' && !rail.ready && (
+                    <span className="ml-2 text-[11px] text-text-muted">quoted ${rail.rate.toLocaleString('en-US')}</span>
+                  )}
+                </span>
+                <StatusPill tone={rail.ready ? 'success' : 'danger'}>
+                  {rail.ready ? 'live' : rail.reason ?? 'unavailable'}
+                </StatusPill>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
 
       <SectionCard
         title="Deposit addresses"
@@ -250,8 +314,11 @@ export default function AdminSettingsPage() {
             </ul>
           )}
           <p className="mt-3 text-[11px] text-text-muted">
-            Missing integrations degrade a specific feature rather than breaking the app: without an Etherscan key an
-            ERC20 payment cannot be auto-verified, and without Resend the rule emails stay queued in the activity log.
+            Missing integrations degrade one feature rather than breaking the app. No rail needs a key to be
+            verified: USDC is checked through keyless Etherscan-shaped mirrors (an Etherscan key is only used in
+            preference to them when it is set), and USDT-TRC20 and BTC need no key at all. Without a cron secret the
+            BTC price is only refreshed when a customer reaches checkout, and without Resend the rule emails stay
+            queued in the activity log.
           </p>
         </SectionCard>
 

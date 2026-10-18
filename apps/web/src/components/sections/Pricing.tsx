@@ -79,7 +79,7 @@ export function Pricing() {
 
         <RevealOnScroll delay={0.2}>
           <p className="mt-8 text-center text-sm text-text-muted">
-            Pay in USDT (Tron TRC20 or Ethereum ERC20), USDC (Ethereum) or Bitcoin — every network is switched on
+            Pay in USDT on Tron (TRC20), USDC on Ethereum (ERC20) or Bitcoin — every rail is switched on
             at checkout as soon as its on-chain verification is live. Full refund if you never access your Phase 1
             account, within 7 days.
           </p>

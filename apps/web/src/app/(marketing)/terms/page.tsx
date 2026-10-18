@@ -35,7 +35,7 @@ export default function TermsPage() {
           <h1 className="font-heading text-4xl font-bold">
             Terms of <GradientText as="span">Service</GradientText>
           </h1>
-          <p className="mt-2 text-sm text-text-muted">Last updated: May 25, 2026</p>
+          <p className="mt-2 text-sm text-text-muted">Last updated: October 17, 2026</p>
         </RevealOnScroll>
 
         <div className="mt-12 space-y-8 text-sm text-text-secondary leading-relaxed">
@@ -61,27 +61,51 @@ export default function TermsPage() {
                   Challenge Rules
                 </Link>{' '}
                 page. Failure to comply may result in disqualification. All trading is conducted in a
-                simulated environment.
+                simulated environment. The free trial described in Section 3 is graded on the same
+                rules but is not a paid evaluation.
               </p>
             </section>
           </RevealOnScroll>
 
           <RevealOnScroll delay={0.1}>
             <section>
-              <h2 className="mb-3 font-heading text-lg font-semibold text-white">3. Payments & Refunds</h2>
+              <h2 className="mb-3 font-heading text-lg font-semibold text-white">3. Free Trial</h2>
               <p>
-                All payments are processed in cryptocurrency — USDT (TRC20 or ERC20), USDC (ERC20) or BTC —
+                Trivaro offers one free trial per trader: a $10,000 simulated practice account for 14
+                days, graded by the same risk engine and subject to the same profit-target, drawdown,
+                minimum-trading-day and conduct rules as a paid challenge. No card or payment is
+                required. Reaching the trial&apos;s profit target marks the trial as passed and invites
+                you to purchase a paid challenge; it does not advance a phase, create a funded
+                account, or entitle you to a profit split or any payout. When the 14-day period ends,
+                the trial account stops accepting trades and is closed as expired. A paid challenge
+                is a separate account with its own starting balance, and the trial result does not
+                carry over to it. Trial accounts are not eligible for refunds because no fee is paid.
+              </p>
+            </section>
+          </RevealOnScroll>
+
+          <RevealOnScroll delay={0.125}>
+            <section>
+              <h2 className="mb-3 font-heading text-lg font-semibold text-white">4. Payments & Refunds</h2>
+              <p>
+                All payments are processed in cryptocurrency — USDT on Tron (TRC20), USDC on Ethereum (ERC20) or Bitcoin —
                 and are non-refundable once you have accessed
                 your trading account. If you never access your Phase 1 account, you may request a full
                 refund within 7 days of purchase. Refunds are otherwise issued at management&apos;s
                 discretion for qualifying circumstances. See our Refund Policy for details.
+              </p>
+              <p className="mt-3">
+                Each order quotes an exact cryptocurrency amount and a deposit address, and is
+                verified on-chain against that address. The quoted amount must be sent within the
+                30-minute window shown at checkout; an order that expires does not lock in the
+                price and can be recreated at the current rate.
               </p>
             </section>
           </RevealOnScroll>
 
           <RevealOnScroll delay={0.15}>
             <section>
-              <h2 className="mb-3 font-heading text-lg font-semibold text-white">4. Intellectual Property</h2>
+              <h2 className="mb-3 font-heading text-lg font-semibold text-white">5. Intellectual Property</h2>
               <p>
                 All content, logos, and materials on the Platform are the property of Trivaro and may not
                 be reproduced without written consent.
@@ -91,7 +115,7 @@ export default function TermsPage() {
 
           <RevealOnScroll delay={0.2}>
             <section>
-              <h2 className="mb-3 font-heading text-lg font-semibold text-white">5. Limitation of Liability</h2>
+              <h2 className="mb-3 font-heading text-lg font-semibold text-white">6. Limitation of Liability</h2>
               <p>
                 Trivaro is not liable for any losses incurred during trading challenges. All trading
                 involves risk. Participants should only trade with funds they can afford to lose.
@@ -101,7 +125,7 @@ export default function TermsPage() {
 
           <RevealOnScroll delay={0.25}>
             <section>
-              <h2 className="mb-3 font-heading text-lg font-semibold text-white">6. Contact</h2>
+              <h2 className="mb-3 font-heading text-lg font-semibold text-white">7. Contact</h2>
               <p>
                 For questions about these terms, contact us at support@trivaro.com.
               </p>
