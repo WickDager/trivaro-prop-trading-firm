@@ -81,7 +81,7 @@ export function PaymentMethods() {
               <CircleDollarSign className="h-3.5 w-3.5" />
               One-time fee · no subscriptions · refundable if you never access Phase 1
             </p>
-            <Link href="/challenges" className="text-sm font-medium text-teal-400 hover:underline">
+            <Link href="/challenges" className="inline-block py-1 text-sm font-medium text-teal-400 hover:underline">
               Start your challenge →
             </Link>
           </div>

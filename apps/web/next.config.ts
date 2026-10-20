@@ -16,12 +16,14 @@ const upgradeInsecure = isProduction ? ["upgrade-insecure-requests"] : [];
 
 const csp = [
   "default-src 'self'",
-  `script-src 'self'${devScriptSrc} 'unsafe-inline' https://challenges.cloudflare.com`,
+  // No Turnstile/CAPTCHA widget is rendered anywhere, so its origin is not
+  // allow-listed: an unused entry in script-src is needless attack surface.
+  `script-src 'self'${devScriptSrc} 'unsafe-inline'`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://*.supabase.co",
   "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https://api.telegram.org https://*.supabase.co wss://*.supabase.co",
-  "frame-src 'self' https://challenges.cloudflare.com",
+  "frame-src 'self'",
   "frame-ancestors 'none'",
   // No plugin content is used anywhere; blocking <object>/<embed> removes the
   // oldest remaining script-execution vector CSP can close on its own.
@@ -58,6 +60,16 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // Pin the browser to HTTPS for two years. Ignored on plaintext
+          // origins, so it is harmless in dev and effective behind Vercel.
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          // Isolate the browsing context: a cross-origin opener cannot reach
+          // this window, and cross-origin sites cannot embed our responses.
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
         ],
       },
     ];

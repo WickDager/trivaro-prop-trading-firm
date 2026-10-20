@@ -280,11 +280,16 @@ export default function AdminVerifyPage() {
     {
       key: 'trader',
       header: 'Trader',
-      cell: (row) => (
-        <Link href={`/admin/traders/${row.user_id}`} className="block max-w-[14rem] truncate text-xs hover:text-amber-300">
-          {profileById[row.user_id ?? ''] ? nameOf(profileById[row.user_id ?? '']) : 'Unknown trader'}
-        </Link>
-      ),
+      // An orphaned challenge has no user_id; linking to /admin/traders/null
+      // produced a "Trader not found" dead end.
+      cell: (row) =>
+        row.user_id ? (
+          <Link href={`/admin/traders/${row.user_id}`} className="block max-w-[14rem] truncate text-xs hover:text-amber-300">
+            {profileById[row.user_id] ? nameOf(profileById[row.user_id]) : 'Unknown trader'}
+          </Link>
+        ) : (
+          <span className="text-xs text-text-muted">Unlinked</span>
+        ),
     },
     {
       key: 'created',
@@ -313,11 +318,14 @@ export default function AdminVerifyPage() {
     {
       key: 'trader',
       header: 'Trader',
-      cell: (row) => (
-        <Link href={`/admin/traders/${row.user_id}`} className="block max-w-[14rem] truncate text-xs hover:text-amber-300">
-          {profileById[row.user_id ?? ''] ? nameOf(profileById[row.user_id ?? '']) : 'Unlinked order'}
-        </Link>
-      ),
+      cell: (row) =>
+        row.user_id ? (
+          <Link href={`/admin/traders/${row.user_id}`} className="block max-w-[14rem] truncate text-xs hover:text-amber-300">
+            {profileById[row.user_id] ? nameOf(profileById[row.user_id]) : 'Unknown trader'}
+          </Link>
+        ) : (
+          <span className="text-xs text-text-muted">Unlinked</span>
+        ),
     },
     {
       key: 'amount',

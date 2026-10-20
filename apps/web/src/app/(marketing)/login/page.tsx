@@ -18,6 +18,23 @@ type AuthMode = 'signin' | 'signup';
 type AuthStep = 'idle' | 'loading' | 'magic_link_sent' | 'check_email';
 
 /**
+ * Report a completed sign-in so the admin panel's "Login history" panel has
+ * something to show. Fire-and-forget with `keepalive`: the audit write must
+ * never delay or block the redirect to the dashboard.
+ */
+function recordLogin(provider: 'email' | 'magic_link' | 'google') {
+  void fetch('/api/auth/login-event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider }),
+    cache: 'no-store',
+    keepalive: true,
+  }).catch(() => {
+    // History is an audit aid, not a gate — a failed write must not surface.
+  });
+}
+
+/**
  * Where to land after signing in, taken from `?redirect=`.
  *
  * Read from `window.location` instead of `useSearchParams()` on purpose: that
@@ -103,6 +120,7 @@ function LoginForm() {
         setStep('idle');
         return;
       }
+      recordLogin('email');
       router.push(redirectTarget());
     } else {
       try {
@@ -379,16 +397,18 @@ function LoginForm() {
                     minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-lg border border-teal-500/10 bg-navy-800 py-2.5 pl-10 pr-10 text-sm text-white placeholder-text-muted focus:border-teal-400 focus:outline-none"
+                    className="w-full rounded-lg border border-teal-500/10 bg-navy-800 py-2.5 pl-10 pr-12 text-sm text-white placeholder-text-muted focus:border-teal-400 focus:outline-none"
                     placeholder="••••••••"
                     autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                   />
+                  {/* 44x44 hit area over a 16px icon: the old 16px button was
+                      below the 24px minimum target and easy to miss on a phone. */}
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     aria-pressed={showPassword}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
+                    className="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                   </button>
@@ -441,7 +461,7 @@ function LoginForm() {
                 type="button"
                 onClick={handleMagicLink}
                 disabled={step === 'loading'}
-                className="text-xs text-teal-400 hover:underline disabled:opacity-50"
+                className="px-2 py-2 text-xs text-teal-400 hover:underline disabled:opacity-50"
               >
                 Send magic link instead
               </button>

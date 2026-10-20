@@ -29,7 +29,7 @@ export function Hero() {
           {...fade(0.1)}
           className="font-heading text-[1.75rem] font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
         >
-          From Demo to <GradientText as="span">Funded</GradientText>
+          From Demo to <GradientText as="span">Funded</GradientText>{' '}
           <span className="block">Your Trading Career Starts Here</span>
         </motion.h1>
 

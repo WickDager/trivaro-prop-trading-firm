@@ -433,6 +433,18 @@ async function main() {
     await check('a link inside the sheet navigates and closes it', async () => {
       await burgerPage.locator(BURGER).click();
       await burgerPage.locator('[role="dialog"]').waitFor({ state: 'visible' });
+      // The sheet slides up with a 300ms transform, so its links are still
+      // below the viewport for the first frames. Framer Motion animates inline
+      // styles, not a Web Animation, so `getAnimations()` stays empty and a
+      // click issued immediately after the dialog appears lands off-screen:
+      // that is what made this check fail on a cold server. Wait until the
+      // panel has actually settled inside the viewport.
+      await burgerPage.waitForFunction(() => {
+        const dialog = document.querySelector('[role="dialog"]');
+        if (!dialog) return false;
+        const rect = dialog.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= window.innerHeight + 1;
+      }, { timeout: 5_000 });
       await burgerPage.locator('[role="dialog"] a', { hasText: 'Pricing' }).first().click();
       await burgerPage.waitForURL('**/pricing', { timeout: 10_000 });
       await burgerPage.locator('[role="dialog"]').waitFor({ state: 'hidden', timeout: 5_000 });
@@ -463,6 +475,25 @@ async function main() {
     await check('/api/admin/data rejects an anonymous caller', async () => {
       const response = await api.get('/api/admin/data');
       assert([401, 403].includes(response.status()), `/api/admin/data returned ${response.status()} for an anonymous caller`);
+    });
+
+    await check('/api/admin/actions rejects an anonymous write', async () => {
+      const response = await api.post('/api/admin/actions', { data: { action: 'set_role' } });
+      assert(response.status() === 401, `returned ${response.status()} for an anonymous admin write`);
+    });
+
+    await check('/api/admin/credentials rejects an anonymous caller', async () => {
+      const response = await api.post('/api/admin/credentials', {
+        data: { challenge_id: '00000000-0000-0000-0000-000000000000' },
+      });
+      assert(response.status() === 401, `returned ${response.status()} for an anonymous credential read`);
+    });
+
+    await check('/api/certificate/generate rejects an anonymous caller', async () => {
+      const response = await api.post('/api/certificate/generate', {
+        data: { challengeId: '00000000-0000-0000-0000-000000000000' },
+      });
+      assert([401, 403, 404].includes(response.status()), `returned ${response.status()} for an anonymous certificate request`);
     });
     await gated.close();
 
@@ -518,6 +549,19 @@ async function main() {
     // ======================================================================
     header('Security surface');
     // ======================================================================
+    await check('POST /api/auth/login-event rejects an anonymous caller', async () => {
+      const response = await api.post('/api/auth/login-event', { data: { provider: 'email' } });
+      assert(response.status() === 401, `returned ${response.status()} for an unauthenticated login report`);
+    });
+
+    await check('POST /api/auth/login-event refuses a foreign Origin', async () => {
+      const response = await api.post('/api/auth/login-event', {
+        headers: { Origin: 'https://evil.example' },
+        data: { provider: 'email' },
+      });
+      assert(response.status() === 403, `returned ${response.status()} for a cross-origin login report`);
+    });
+
     await check('POST /api/orders/create refuses a foreign Origin', async () => {
       const response = await api.post('/api/orders/create', {
         headers: { Origin: 'https://evil.example' },

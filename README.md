@@ -58,8 +58,7 @@ trivaro-prop-trading-firm/
 │           └── templates/          # successMessage.ts
 │
 ├── packages/
-│   ├── shared-types/               # TypeScript types shared across monorepo
-│   └── ui-config/                  # Design tokens (colors, breakpoints, glass styles)
+│   └── shared-types/               # TypeScript types shared across monorepo
 │
 ├── bridge/                         # Python MT5 centralized monitor
 │   ├── mt5_bridge.py               # Main monitor script
@@ -237,6 +236,16 @@ npx vercel --prod
 ### Edge Functions (Supabase)
 
 GitHub Actions deploys edge functions on push to `main` when `supabase/functions/**` changes.
+
+The workflow authenticates with the repository secret `SUPABASE_ACCESS_TOKEN`.
+That token must be a **scoped** personal access token carrying **both**
+`Edge Functions: Read` and `Edge Functions: Read-write` (Dashboard → Account →
+Access Tokens). Read is not optional: `functions deploy` lists existing
+functions before uploading, so a write-only token fails with
+`Missing required permission(s): edge_functions_read`. Token permissions are
+immutable — delete and recreate the token rather than trying to edit it, then
+update the secret. The workflow's preflight step probes the same endpoint and
+names the missing scope instead of failing inside the deploy.
 
 ## Routes
 

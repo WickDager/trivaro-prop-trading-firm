@@ -58,6 +58,22 @@ jobs:
               exit 1 ;;
           esac
 
+          # A token can be scoped narrowly enough to read the project yet still
+          # fail inside `functions deploy`, which lists existing functions first
+          # and dies with `unexpected list functions status 403` (the opaque
+          # `Missing required permission(s): edge_functions_read`). Probe the
+          # exact call the CLI makes so the failure names the missing scope.
+          fns_code=$(curl -sS -o /tmp/functions.json -w '%{http_code}' \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/functions" || echo 000)
+          if [ "$fns_code" != "200" ]; then
+            missing=$(tr -d '\n' < /tmp/functions.json 2>/dev/null | head -c 300 || true)
+            echo "::error::The token can reach project $PROJECT_REF but cannot list Edge Functions (HTTP $fns_code). Deploy fails at its first step because it lists functions before uploading. Response: $missing"
+            echo "::error::Fix: Dashboard → Account → Access Tokens → create a token scoped to this project with BOTH 'Edge Functions: Read' and 'Edge Functions: Read-write', then update the SUPABASE_ACCESS_TOKEN secret. Permissions are immutable — delete and recreate rather than editing."
+            exit 1
+          fi
+          echo "Edge Functions permissions OK."
+
       # No `supabase link` needed: since CLI v2 the deploy command accepts
       # --project-ref directly, which is what the official GitHub Actions
       # example does. `link` only wrote .temp/linked-project.json (gitignored).

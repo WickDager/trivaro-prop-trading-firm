@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
+import { clientIp, recordLogin } from '@/lib/login-history';
 
 /**
  * Only ever bounce back to a same-origin, absolute path. Without this,
@@ -26,6 +27,18 @@ export async function GET(request: Request) {
     const supabase = await createServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // OAuth and magic-link sessions are created here, not on /login, so this
+      // is the only place their sign-in can enter the audit trail.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await recordLogin({
+          userId: user.id,
+          email: user.email ?? null,
+          provider: (user.app_metadata?.provider as string | undefined) ?? 'magic_link',
+          ip: clientIp(request),
+          userAgent: request.headers.get('user-agent'),
+        });
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

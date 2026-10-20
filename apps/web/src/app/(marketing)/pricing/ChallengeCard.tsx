@@ -41,7 +41,7 @@ export function ChallengeCard({ challenge }: { challenge: ChallengePricing }) {
         </div>
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <Check className="h-4 w-4 text-green-400" />
-          {challenge.minTradingDays} Min Trading Days
+          Min. {challenge.minTradingDays} Trading Days
         </div>
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <Check className="h-4 w-4 text-green-400" />

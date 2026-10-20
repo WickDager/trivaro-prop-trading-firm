@@ -32,13 +32,17 @@ export function Footer() {
           </div>
           {Object.entries(footerLinks).map(([title, links]) => (
             <div key={title}>
-              <h3 className="mb-3 text-sm font-semibold text-white">{title}</h3>
+              {/* h2, not h3: the footer can be the first heading level after
+                  the page's h1 (e.g. /login), and an h3 there skipped a level. */}
+              <h2 className="mb-3 text-sm font-semibold text-white">{title}</h2>
               <ul className="space-y-2">
                 {links.map((link) => (
                   <li key={link.href}>
+                    {/* `py-1` lifts a 19px line of text to a 27px tap target;
+                        WCAG 2.2 asks for 24px and these are stacked on phones. */}
                     <Link
                       href={link.href}
-                      className="text-sm text-text-secondary transition-colors hover:text-teal-400"
+                      className="block py-1 text-sm text-text-secondary transition-colors hover:text-teal-400"
                     >
                       {link.label}
                     </Link>
