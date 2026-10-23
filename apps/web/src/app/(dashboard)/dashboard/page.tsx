@@ -10,6 +10,8 @@ import { PhaseProgress } from '@/components/dashboard/PhaseProgress';
 import { TrialBanner } from '@/components/dashboard/TrialBanner';
 import { CredentialStatusBanner } from '@/components/dashboard/CredentialStatusBanner';
 import type { CredentialStatus } from '@/components/dashboard/CredentialStatusBanner';
+import { TelegramLink } from '@/components/dashboard/TelegramLink';
+import { ProfileDetails } from '@/components/dashboard/ProfileDetails';
 import { GradientText } from '@/components/shared/GradientText';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Challenge } from '@trivaro/shared-types';
@@ -159,6 +161,13 @@ export default function DashboardPage() {
           <h2 className="mb-2 font-heading text-xl font-bold">No Active Challenge</h2>
           <p className="text-sm text-text-secondary">You don&apos;t have an active challenge yet. Start one to begin trading.</p>
         </div>
+
+        {/* Setup still matters before the first challenge: these two are the
+            details support needs to reach the customer at all. */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <TelegramLink />
+          <ProfileDetails />
+        </div>
       </div>
     );
   }
@@ -257,6 +266,11 @@ export default function DashboardPage() {
       </div>
 
       <PhaseProgress currentPhase={phase} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TelegramLink />
+        <ProfileDetails />
+      </div>
 
       <Card>
         <CardHeader>

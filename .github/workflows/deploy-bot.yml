@@ -81,3 +81,8 @@ jobs:
         run: supabase functions deploy receive-trade --project-ref "$PROJECT_REF" --use-api --import-map "./supabase/functions/import_map.json"
       - name: Deploy send-notification
         run: supabase functions deploy send-notification --project-ref "$PROJECT_REF" --use-api --import-map "./supabase/functions/import_map.json"
+      # telegram-webhook now lives in this repo (it used to exist only in the
+      # deployment folder, so no CI run could ever update it). It imports
+      # ../_shared/security.ts, which is vendored here as well.
+      - name: Deploy telegram-webhook
+        run: supabase functions deploy telegram-webhook --project-ref "$PROJECT_REF" --use-api --import-map "./supabase/functions/import_map.json"

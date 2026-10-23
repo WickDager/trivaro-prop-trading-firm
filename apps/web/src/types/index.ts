@@ -98,6 +98,23 @@ type ProfilesRow = {
   role: string;
   kyc_status: string | null;
   created_at: string;
+  /** Added by migration 023 (onboarding + Telegram linking). */
+  phone_e164: string | null;
+  country_code: string | null;
+  date_of_birth: string | null;
+  address_line1: string | null;
+  city: string | null;
+  postal_code: string | null;
+  telegram_linked_at: string | null;
+}
+
+/** Added by migration 023. Service-role only: RLS is enabled with no policies. */
+type TelegramLinkTokensRow = {
+  token_hash: string;
+  user_id: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
 }
 
 type CertificatesRow = {
@@ -349,6 +366,13 @@ export interface Database {
           role?: string;
           kyc_status?: string | null;
           created_at?: string;
+          phone_e164?: string | null;
+          country_code?: string | null;
+          date_of_birth?: string | null;
+          address_line1?: string | null;
+          city?: string | null;
+          postal_code?: string | null;
+          telegram_linked_at?: string | null;
         };
         Update: {
           email?: string | null;
@@ -360,6 +384,28 @@ export interface Database {
           telegram_id?: number | null;
           role?: string;
           kyc_status?: string | null;
+          phone_e164?: string | null;
+          country_code?: string | null;
+          date_of_birth?: string | null;
+          address_line1?: string | null;
+          city?: string | null;
+          postal_code?: string | null;
+          telegram_linked_at?: string | null;
+        };
+        Relationships: [];
+      };
+      telegram_link_tokens: {
+        Row: TelegramLinkTokensRow;
+        Insert: {
+          token_hash: string;
+          user_id: string;
+          expires_at: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          expires_at?: string;
+          used_at?: string | null;
         };
         Relationships: [];
       };
